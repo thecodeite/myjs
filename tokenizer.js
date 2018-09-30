@@ -180,11 +180,15 @@ const assignment = [
   '|=',
   '^=',
   '++',
-  '--'
+  '--',
+  '<<=',
+  '>>=',
+  '>>>='
 ];
 const punctuation = [';', ',', '.', ':'];
 const comparison = ['<', '>', '<=', '>=', '==', '==='];
 const bitwise = ['&', '|', '^', '<<', '>>', '>>>'];
+const unary = ['++', '--', '+', '-', '~', '!'];
 
 const symbols = [
   ...wrappers,
@@ -193,5 +197,6 @@ const symbols = [
   ...assignment,
   ...punctuation,
   ...comparison,
-  ...bitwise
+  ...bitwise,
+  ...unary
 ];

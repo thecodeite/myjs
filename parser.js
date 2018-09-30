@@ -1,4 +1,5 @@
 const ast = require('./ast');
+const NotImplementedError = require('./NotImplementedError');
 
 const debug = () => process.env.DEBUG === 'true';
 const dlog = (...args) => debug() && console.log(...args);
@@ -86,30 +87,67 @@ function readFunctionDeclarationOrFunctionExpression(ctx, identifierRequired) {
   return { identifier, params, body };
 }
 
+// FormalParameterList ::= Identifier ( "," Identifier )*
 function readFormalParameterList(ctx) {
-  // Identifier ( "," Identifier )*
   dlog('readFormalParameterList');
-  throw new NotImplementedError('readFormalParameterList');
+  const identifiers = [readIdentifier(ctx)];
+  while (ctx.itr.peek.v === ',') {
+    ctx.itr.read(',');
+    identifiers.push(readIdentifier(ctx));
+  }
+
+  return new ast.FormalParameterList(identifiers);
 }
 
 function readFunctionBody(ctx) {
   // "{" ( SourceElements )? "}"
   dlog('readFunctionBody');
   ctx.itr.read('{');
-  let sourceElements = [];
+  let sourceElements = new ast.SourceElements([]);
   if (ctx.itr.peek.v !== '}') {
     sourceElements = readSourceElements(ctx);
   }
   ctx.itr.read('}');
   return new ast.FunctionBody([sourceElements]);
-  // throw new NotImplementedError('readFunctionBody');
 }
 
 function readStatementList(ctx) {
   dlog('readStatementList');
-  return readStatement(ctx);
+  const statements = [];
+
+  while (ctx.itr.peek.v !== '}') {
+    statements.push(readStatement(ctx));
+    skipEmptyLines(ctx);
+  }
+
+  return new ast.StatementList(statements);
 }
 
+const idStatements = {
+  return: readReturnStatement,
+  var: readVariableStatement,
+  do: readIterationStatement,
+  while: readIterationStatement,
+  for: readIterationStatement,
+  if: readIfStatement,
+  continue: readContinue,
+  break: readBreak,
+  import: () => {
+    throw new NotImplementedError('readStatement: import');
+  },
+  with: () => {
+    throw new NotImplementedError('readStatement: with');
+  },
+  switch: () => {
+    throw new NotImplementedError('readStatement: switch');
+  },
+  throw: () => {
+    throw new NotImplementedError('readStatement: throw');
+  },
+  try: () => {
+    throw new NotImplementedError('readStatement: try');
+  }
+};
 function readStatement(ctx) {
   /* Statement	::=	Block
                 |	VariableStatement
@@ -127,19 +165,122 @@ function readStatement(ctx) {
                 |	ThrowStatement
                 |	TryStatement
 */
+
   dlog('readStatement');
   skipEmptyLines(ctx);
   const peek = ctx.itr.peek.v;
   dlog('peek:', peek);
+
   if (peek === ';') {
     return readEmptyStatement(ctx);
-  } else if (peek === 'var') {
-    return readVarStatement(ctx);
-  } else if (peek === 'return') {
-    return readReturnStatement(ctx);
+  } else if (peek === '{') {
+    return readBlock(ctx);
+  } else if (idStatements[peek]) {
+    return idStatements[peek](ctx);
   } else {
     return readExpressionStatement(ctx);
   }
+}
+
+// ContinueStatement	::=	"continue" ( Identifier )? ( ";" )?
+function readContinue(ctx) {
+  dlog('readContinue');
+  ctx.itr.read('continue');
+
+  let identifier = null;
+  if (ctx.itr.peek.t === 'identifier') {
+    throw new NotImplementedError('readContinue named continue');
+    identifier = readIdentifier(ctx);
+  }
+
+  skipSemi(ctx);
+  return new ast.ContinueStatement(identifier);
+}
+
+// BreakStatement	::=	"break" ( Identifier )? ( ";" )?
+function readBreak(ctx) {
+  dlog('readBreak');
+  ctx.itr.read('break');
+
+  let identifier = null;
+  if (ctx.itr.peek.t === 'identifier') {
+    throw new NotImplementedError('readBreak named break');
+    identifier = readIdentifier(ctx);
+  }
+
+  skipSemi(ctx);
+  return new ast.BreakStatement(identifier);
+}
+
+// IfStatement	::=	"if" "(" Expression ")" Statement ( "else" Statement )?
+function readIfStatement(ctx) {
+  dlog('readIfStatement');
+  ctx.itr.read('if');
+  ctx.itr.read('(');
+  const expression = readExpression(ctx);
+  ctx.itr.read(')');
+  const statement = readStatement(ctx);
+
+  let elseStatement;
+  if (ctx.itr.peek.v === 'else') {
+    ctx.itr.read('else');
+    elseStatement = readStatement(ctx);
+  }
+
+  return new ast.IfStatement(expression, statement, elseStatement);
+}
+
+// Block	::=	"{" ( StatementList )? "}"
+function readBlock(ctx) {
+  dlog('readBlock');
+  ctx.itr.read('{');
+  const statementList = readStatementList(ctx);
+  ctx.itr.read('}');
+
+  return new ast.Block([statementList]);
+}
+
+/*
+IterationStatement	::=	( "do" Statement "while" "(" Expression ")" ( ";" )? )
+|	( "while" "(" Expression ")" Statement )
+|	( "for" "(" ( ExpressionNoIn )? ";" ( Expression )? ";" ( Expression )? ")" Statement )
+|	( "for" "(" "var" VariableDeclarationList ";" ( Expression )? ";" ( Expression )? ")" Statement )
+|	( "for" "(" "var" VariableDeclarationNoIn "in" Expression ")" Statement )
+|	( "for" "(" LeftHandSideExpressionForIn "in" Expression ")" Statement )
+*/
+function readIterationStatement(ctx) {
+  dlog('readIterationStatement');
+  if (ctx.itr.peek.v === 'while') {
+    ctx.itr.read('while');
+    ctx.itr.read('(');
+    const continueExpression = readExpression(ctx);
+    ctx.itr.read(')');
+    const statement = readStatement(ctx);
+    skipSemi(ctx);
+    return new ast.IterationStatement(
+      'while',
+      { continueExpression },
+      statement
+    );
+  }
+
+  if (ctx.itr.peek.v === 'do') {
+    ctx.itr.read('do');
+
+    const statement = readStatement(ctx);
+    ctx.itr.read('while');
+    ctx.itr.read('(');
+    const continueExpression = readExpression(ctx);
+    ctx.itr.read(')');
+    skipSemi(ctx);
+    return new ast.IterationStatement(
+      'do-while',
+      { initialExpression: ast.True, continueExpression },
+      statement
+    );
+  }
+
+  throw new NotImplementedError('readIterationStatement ' + ctx.itr.peek.v);
 }
 
 function readEmptyStatement(ctx) {
@@ -171,9 +312,19 @@ function readExpression(ctx) {
   return readAssignmentExpression(ctx);
 }
 
+//AssignmentOperator	::=	( "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | ">>>=" | "&=" | "^=" | "|=" )
+const assignmentOperators = Object.keys(ast.AssignmentOperator);
+// AssignmentExpression	::=	( LeftHandSideExpression AssignmentOperator AssignmentExpression | ConditionalExpression )
 function readAssignmentExpression(ctx) {
   dlog('readAssignmentExpression');
-  return readConditionalExpression(ctx);
+  const left = readConditionalExpression(ctx);
+
+  if (assignmentOperators.includes(ctx.itr.peek.v)) {
+    const operator = ctx.itr.read(assignmentOperators);
+    const right = readAssignmentExpression(ctx);
+    return new ast.AssignmentExpression(left, right, operator);
+  }
+  return left;
 }
 
 function readConditionalExpression(ctx) {
@@ -319,51 +470,45 @@ function readMultiplicativeExpression(ctx) {
   return child;
 }
 
-const unaryOperators = [
-  'delete',
-  'void',
-  'typeof',
-  '++',
-  '--',
-  '+',
-  '-',
-  '~',
-  '!'
-];
+const unaryOperators = Object.keys(ast.UnaryOperator);
+// UnaryExpression	::=	( PostfixExpression | ( UnaryOperator UnaryExpression )+ )
 function readUnaryExpression(ctx) {
   dlog('readUnaryExpression');
 
-  while (unaryOperators.includes(ctx.itr.peek.v)) {
-    throw new NotImplementedError('unaryOperator: ' + unaryOperator);
+  if (unaryOperators.includes(ctx.itr.peek.v)) {
     const unaryOperator = ctx.itr.read(unaryOperators);
+    const unaryExpression = readUnaryExpression(ctx);
+    return new ast.UnaryExpression(unaryOperator, unaryExpression);
   }
-  let child = readPostfixExpression(ctx);
-
-  return child;
+  return readPostfixExpression(ctx);
 }
 
-const postfixOperators = ['++', '--'];
+const postfixOperators = Object.keys(ast.PostfixOperator);
+// PostfixExpression	::=	LeftHandSideExpression ( PostfixOperator )?
 function readPostfixExpression(ctx) {
   dlog('readPostfixExpression');
-  let child = readLeftHandSideExpression(ctx);
+  let leftHandSizeExpression = readLeftHandSideExpression(ctx);
   while (postfixOperators.includes(ctx.itr.peek.v)) {
-    throw new NotImplementedError(ctx.itr.peek.v);
+    const postfixOperator = ctx.itr.read(postfixOperators);
+    leftHandSizeExpression = new ast.PostfixExpression(
+      leftHandSizeExpression,
+      postfixOperator
+    );
   }
-  return child;
+  return leftHandSizeExpression;
 }
 
 // LeftHandSideExpression ::= CallExpression | MemberExpression
-
 function readLeftHandSideExpression(ctx) {
   dlog('readLeftHandSideExpression');
   const memExp = readMemberExpression(ctx);
 
   if (ctx.itr.peek.v === '(') {
     const args = readArguments(ctx);
-    return new ast.CallExpression(memExp, args);
+    return new ast.LeftHandSideExpression(new ast.CallExpression(memExp, args));
   }
-  return memExp;
-  throw new NotImplementedError('CallExpression');
+  // return memExp;
+  return new ast.LeftHandSideExpression(memExp);
 }
 
 // Arguments	::=	"(" ( ArgumentList )? ")"
@@ -379,27 +524,36 @@ function readArguments(ctx) {
 
 // ArgumentList	::=	AssignmentExpression ( "," AssignmentExpression )*
 function readArgumentList(ctx) {
-  throw new NotImplementedError('readArgumentList');
+  dlog('readArgumentList');
+  const argumentList = [readAssignmentExpression(ctx)];
+  while (ctx.itr.peek.v === ',') {
+    ctx.itr.read(',');
+    argumentList.push(readAssignmentExpression(ctx));
+  }
+
+  return new ast.ArgumentList(argumentList);
 }
 
 function readMemberExpression(ctx) {
   dlog('readMemberExpression');
   // ( ( FunctionExpression | PrimaryExpression ) ( MemberExpressionPart )* ) | AllocationExpression
+  const expression = (() => {
+    if (ctx.itr.peek.v === 'new') {
+      return readAllocationExpression(ctx);
+    }
 
-  if (ctx.itr.peek.v === 'new') {
-    return readAllocationExpression(ctx);
-  }
-
-  let child;
-  if (ctx.itr.peek.v === 'function') {
-    child = readFunctionExpression(ctx);
-  } else {
-    child = readPrimaryExpression(ctx);
-  }
-  while (ctx.itr.peek.v === '[' || ctx.itr.peek.v === '.') {
-    child = readMemberExpressionPart(ctx, child);
-  }
-  return child;
+    let child;
+    if (ctx.itr.peek.v === 'function') {
+      child = readFunctionExpression(ctx);
+    } else {
+      child = readPrimaryExpression(ctx);
+    }
+    while (ctx.itr.peek.v === '[' || ctx.itr.peek.v === '.') {
+      child = readMemberExpressionPart(ctx, child);
+    }
+    return child;
+  })();
+  return new ast.MemberExpression(expression);
 }
 
 // MemberExpressionPart	::=	( "[" Expression "]" ) |	( "." Identifier )
@@ -556,32 +710,33 @@ function readAllocationExpression(ctx) {
   throw new NotImplementedError('readAllocationExpression');
 }
 
-function readVarStatement(ctx) {
-  dlog('readVarStatement');
+function readVariableStatement(ctx) {
+  dlog('readVariableStatement');
   ctx.itr.read('var');
-  const varDecList = readVarDeclarationList(ctx);
+  const varDecList = readVariableDeclarationList(ctx);
   skipSemi(ctx);
-  return new ast.VarStatement(varDecList);
+  return new ast.VariableStatement(varDecList);
 }
 
 // VariableDeclarationList	::=	VariableDeclaration ( "," VariableDeclaration )*
-function readVarDeclarationList(ctx) {
-  dlog('readVarDeclarationList');
-  const varDecList = [readVarDeclaration(ctx)];
+function readVariableDeclarationList(ctx) {
+  dlog('readVariableDeclarationList');
+  const variableDecList = [readVariableDeclaration(ctx)];
   while (ctx.itr.peek.v === ',') {
     ctx.itr.read(',');
-    varDecList.push(readVarDeclaration(ctx));
+    variableDecList.push(readVariableDeclaration(ctx));
   }
-  return varDecList;
+  return variableDecList;
 }
 
-function readVarDeclaration(ctx) {
-  dlog('readVarDeclaration');
+function readVariableDeclaration(ctx) {
+  dlog('readVariableDeclaration');
   const identifier = readIdentifier(ctx);
   const initialiser = ctx.itr.peek.v === '=' ? readInitialiser(ctx) : undefined;
-  return new ast.VarDeclaration(identifier, initialiser);
+  return new ast.VariableDeclaration(identifier, initialiser);
 }
 
+// Identifier	::=	<IDENTIFIER_NAME>
 function readIdentifier(ctx) {
   dlog('readIdentifier');
   const { value } = ctx.itr.next();

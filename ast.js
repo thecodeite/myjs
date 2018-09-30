@@ -1,22 +1,59 @@
 const NotImplementedError = require('./NotImplementedError');
 
-class StorageObject {
-  constructor(initialData) {
+class StorageSlot {
+  constructor(initialData, ref, key) {
     this.data = initialData;
+    this.ref = ref;
+    this.key = key;
   }
 
-  get(key) {
+  getChild(key) {
     // console.log(
     //   'GET key, this.data, this.data[key]:',
     //   key,
     //   this.data,
     //   this.data[key]
     // );
-    return this.data[key];
+    if (this.data[key]) {
+      const so = this.data[key];
+      so.ref = this;
+      so.key = key;
+      return so;
+    } else {
+      return new StorageSlot(undefined);
+    }
+  }
+
+  set(value) {
+    this.data = value;
+  }
+
+  toString() {
+    return `«(${typeof this.data}) data:${this.data}»`;
+  }
+
+  toJSON(key) {
+    if (typeof this.data === 'object' && this.data !== null) {
+      return this.data;
+    }
+    return `«(${typeof this.data}) data:${this.data}»`;
   }
 
   valueOf() {
     return this.data;
+  }
+
+  typeOf() {
+    return typeof this.data;
+  }
+
+  delete() {
+    if (this.ref && this.key) {
+      this.ref.data[this.key] = undefined;
+      return new StorageSlot(true);
+    } else {
+      return new StorageSlot(false);
+    }
   }
 }
 
@@ -27,22 +64,26 @@ class AstItem {
     }
     children.forEach(x => {
       if (x === null || x === undefined) {
-        throw new Error('all children must be defined, got: ' + x);
+        throw new Error(this + ' all children must be defined, got: ' + x);
       }
 
       if (Array.isArray(x)) {
         throw new Error(
-          'all children must not be array, got: ' + x.constructor.name
+          this + ' all children must not be array, got: ' + x.constructor.name
         );
       }
       if (!x instanceof AstItem) {
         throw new Error(
-          'all children must be instanceof AstItem, got: ' + x.constructor.name
+          this +
+            ' all children must be instanceof AstItem, got: ' +
+            x.constructor.name
         );
       }
       if (!x.toStringAll) {
         throw new Error(
-          'all children must have x.toStringAll, got: ' + x.constructor.name
+          this +
+            ' all children must have x.toStringAll, got: ' +
+            x.constructor.name
         );
       }
     });
@@ -80,6 +121,14 @@ class AstItem {
     }
     return str;
   }
+
+  mustBe(name, t) {
+    if (!this[name] instanceof t) {
+      throw new Error(
+        `${this} is expecting property ${name} to be ${t} but got ${this[name]}`
+      );
+    }
+  }
 }
 
 class BinaryExpressionAstItem extends AstItem {
@@ -115,7 +164,7 @@ class BinaryExpressionOperatorsAstItem extends BinaryExpressionAstItem {
     const left = this.left.run(scope);
     const right = this.right.run(scope);
     const result = this.validOperators[this.operator](left, right);
-    return new StorageObject(result);
+    return new StorageSlot(result);
   }
 }
 
@@ -134,7 +183,7 @@ class Literal extends AstItem {
   }
 
   run(scope) {
-    return new StorageObject(this.value);
+    return new StorageSlot(this.value);
   }
 
   toString(pad = '') {
@@ -142,24 +191,27 @@ class Literal extends AstItem {
   }
 }
 
+const True = new Literal(true);
+const False = new Literal(false);
+
 class Identifier extends AstItem {
-  constructor(identifierName) {
+  constructor(name) {
     super([]);
-    if (typeof identifierName !== 'string') {
-      throw new Error('identifierName must be string');
+    if (typeof name !== 'string') {
+      throw new Error('name must be string');
     }
-    this.identifierName = identifierName;
+    this.name = name;
   }
 
   toString(pad = '') {
-    return `${pad}[Identifier:'${this.identifierName}']`;
+    return `${pad}[Identifier:'${this.name}']`;
   }
 
   run(scope) {
     let currentScope = scope;
 
+    let id = this.name;
     while (currentScope) {
-      let id = this.identifierName;
       let val = currentScope[id];
       if (val !== undefined) {
         return val;
@@ -167,7 +219,7 @@ class Identifier extends AstItem {
       currentScope = currentScope.__parentScope;
     }
 
-    return undefined;
+    throw new Error(id + ' is not defined');
   }
 }
 
@@ -178,7 +230,7 @@ class ArrayLiteral extends AstItem {
   }
 
   run(scope) {
-    return new StorageObject(this.elementList.run(scope));
+    return new StorageSlot(this.elementList.run(scope));
   }
 }
 
@@ -200,6 +252,9 @@ class ObjectLiteral extends AstItem {
   }
 
   run(scope) {
+    if (!this.propertyNameAndValueList) {
+      return new StorageSlot({});
+    }
     const keyValues = this.propertyNameAndValueList.run(scope);
 
     const value = keyValues.reduce((acc, { key, value }) => {
@@ -207,7 +262,7 @@ class ObjectLiteral extends AstItem {
       return acc;
     }, {});
 
-    return new StorageObject(value);
+    return new StorageSlot(value);
   }
 }
 
@@ -233,7 +288,7 @@ class PropertyNameAndValue extends AstItem {
 
   run(scope) {
     return {
-      key: this.key.identifierName,
+      key: this.key.name,
       value: this.value.run(scope)
     };
   }
@@ -246,8 +301,13 @@ class PropertyName extends AstItem {
 }
 
 class MemberExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(expression) {
+    super([expression]);
+    this.expression = expression;
+  }
+
+  run(scope) {
+    return this.expression.run(scope);
   }
 }
 
@@ -258,26 +318,45 @@ class AllocationExpression extends AstItem {
 }
 
 class MemberExpressionPart extends AstItem {
-  constructor(type, name, target) {
-    super([target, name]);
-    if (!'[.'.includes(type)) {
-      throw new Error('MemberExpressionPart: Valid types are [ or .');
-    }
+  constructor(type, identifierOrExpression, target) {
+    super([target, identifierOrExpression]);
     this.type = type;
-    this.name = name;
     this.target = target;
+
+    if (type === '.') {
+      if (!identifierOrExpression instanceof Identifier) {
+        throw new Error(
+          'For . notation, name must be Identifier. Got: ' + name
+        );
+      }
+      this.f = () => {
+        return identifierOrExpression.name;
+      };
+    } else if (type === '[') {
+      if (!identifierOrExpression instanceof Expression) {
+        throw new Error(
+          'For [ notation, name must be Expression. Got: ' + name
+        );
+      }
+      this.f = scope => {
+        return identifierOrExpression.run(scope).valueOf();
+      };
+    } else {
+      throw new Error(
+        'MemberExpressionPart: Valid types are [ or . Got: ' + type
+      );
+    }
   }
 
   run(scope) {
     const target = this.target.run(scope);
 
-    if (this.type === '.') {
-      const name = this.name.identifierName;
-      return target.get(name);
-    } else if (this.type === '[') {
-      const name = this.name.run(scope).valueOf();
-      return target.get(name);
+    if (!target) {
+      throw new Error(`${this.target} does not exist in scope`);
     }
+
+    const name = this.f(scope);
+    return target.getChild(name);
   }
 }
 
@@ -287,17 +366,38 @@ class CallExpression extends AstItem {
 
     this.memExp = memExp;
     this.args = args;
+
+    if (!args instanceof Arguments) {
+      throw new Error('args must be an Arguments, got ' + args);
+    }
   }
 
   run(scope) {
     const func = this.memExp.run(scope);
     if (!func) {
-      throw new Error(this.memExp + ' is not a function');
+      throw new Error(
+        this.memExp +
+          ' does not point at a function ' +
+          this.memExp +
+          ' ' +
+          func
+      );
     }
     if (!func instanceof Function) {
       throw new Error(func + ' is not a function');
     }
     const newScope = { __parentScope: scope };
+
+    const argValues = this.args.run(scope);
+
+    if (func.params.children) {
+      for (let i = 0; i < func.params.children.length; i++) {
+        const identifier = func.params.children[i];
+        const value = argValues[i];
+        scope[identifier.name] = value;
+      }
+    }
+
     return func.runBody(newScope);
   }
 }
@@ -318,25 +418,55 @@ class ArgumentList extends AstItem {
   constructor(children) {
     super(children);
   }
+
+  run(scope) {
+    return this.children.map(child => child.run(scope));
+  }
 }
 
 class LeftHandSideExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(memberExpression) {
+    super([memberExpression]);
+
+    if (
+      !(
+        memberExpression instanceof MemberExpression ||
+        memberExpression instanceof CallExpression
+      )
+    ) {
+      throw new Error(
+        'memberExpression must be MemberExpression or CallExpression. Got: ' +
+          memberExpression
+      );
+    }
+    this.memberExpression = memberExpression;
+  }
+
+  run(scope) {
+    return this.memberExpression.run(scope);
   }
 }
 
 const PostfixOperator = {
-  '++': () => {
-    throw new NotImplementedError('PostfixOperator ++');
-  },
-  '--': () => {
-    throw new NotImplementedError('PostfixOperator ++');
-  }
+  '++': x => x + 1,
+  '--': x => x - 1
 };
+
 class PostfixExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(leftHandSizeExpression, postfixOperator) {
+    super([leftHandSizeExpression]);
+    this.leftHandSizeExpression = leftHandSizeExpression;
+    this.postfixOperator = PostfixOperator[postfixOperator];
+
+    this.mustBe('leftHandSizeExpression', LeftHandSideExpression);
+  }
+
+  run(scope) {
+    const so = this.leftHandSizeExpression.run(scope);
+    const initialValue = so.valueOf();
+    const value = this.postfixOperator(initialValue);
+    so.set(value);
+    return new StorageSlot(initialValue);
   }
 }
 
@@ -344,34 +474,40 @@ const UnaryOperator = {
   delete: () => {
     throw new NotImplementedError('UnaryOperator: delete');
   },
-  void: () => {
-    throw new NotImplementedError('UnaryOperator: void');
-  },
-  typeof: () => {
-    throw new NotImplementedError('UnaryOperator: typeof');
-  },
-  '++': () => {
-    throw new NotImplementedError('UnaryOperator: ++');
-  },
-  '--': () => {
-    throw new NotImplementedError('UnaryOperator: --');
-  },
-  '+': () => {
-    throw new NotImplementedError('UnaryOperator: +');
-  },
-  '-': () => {
-    throw new NotImplementedError('UnaryOperator: -');
-  },
-  '~': () => {
-    throw new NotImplementedError('UnaryOperator: ~');
-  },
-  '!': () => {
-    throw new NotImplementedError('UnaryOperator: !');
-  }
+  typeof: old => old.typeOf(),
+  void: () => undefined,
+  '++': old => old.valueOf() + 1,
+  '--': old => old.valueOf() - 1,
+  '+': old => +old.valueOf(),
+  '-': old => -old.valueOf(),
+  '~': old => ~old.valueOf(),
+  '!': old => !old.valueOf()
 };
+const MutatingUnaryOperators = ['++', '--'];
 class UnaryExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(unaryOperator, unaryExpression) {
+    super([unaryExpression]);
+
+    this.unaryOperator = unaryOperator;
+    this.unaryOperatorF = UnaryOperator[unaryOperator];
+    this.unaryExpression = unaryExpression;
+  }
+
+  run(scope) {
+    const so = this.unaryExpression.run(scope);
+
+    if (this.unaryOperator === 'delete') {
+      return so.delete();
+    }
+
+    const newVal = this.unaryOperatorF(so);
+    if (MutatingUnaryOperators.includes(this.unaryOperator)) {
+      console.log('mutating ' + this.unaryOperator);
+      so.set(newVal);
+      return so;
+    } else {
+      return new StorageSlot(newVal);
+    }
   }
 }
 
@@ -494,15 +630,48 @@ class ConditionalExpression extends AstItem {
   }
 }
 
+const AssignmentOperator = {
+  '=': (_, right) => right,
+  '/=': (left, right) => left / right,
+  '%=': (left, right) => left % right,
+  '+=': (left, right) => left + right,
+  '-=': (left, right) => left - right,
+  '<<=': (left, right) => left << right,
+  '>>=': (left, right) => left >> right,
+  '>>>=': (left, right) => left >>> right,
+  '&=': (left, right) => left & right,
+  '^=': (left, right) => left ^ right,
+  '|=': (left, right) => left | right
+};
 class AssignmentExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(left, right, operator) {
+    super([left, right]);
+    if (!left || !left instanceof LeftHandSideExpression) {
+      throw new Error(
+        'Expected left to be LeftHandSideExpression but got: ' + left
+      );
+    }
+    this.left = left;
+    this.right = right;
+    this.operator = operator;
   }
-}
 
-class AssignmentOperator extends AstItem {
-  constructor(children) {
-    super(children);
+  run(scope) {
+    const f = AssignmentOperator[this.operator];
+    const left = this.left.run(scope);
+
+    if (!left) {
+      throw new Error(`var ${this.left} not found`);
+    }
+
+    const right = this.right.run(scope);
+    const newVal = f(left.valueOf(), right.valueOf());
+    left.set(newVal);
+    return newVal;
+  }
+
+  toString(pad = '') {
+    return `${pad}[AssignmentExpression'${this.identifier}']`;
   }
 }
 
@@ -531,26 +700,19 @@ class Block extends AstItem {
 }
 
 class StatementList extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(statements) {
+    super(statements);
+    this.statements = statements;
   }
-}
 
-class VariableStatement extends AstItem {
-  constructor(children) {
-    super(children);
-  }
-}
+  run(scope) {
+    for (let statement of this.statements) {
+      statement.run(scope);
 
-class VariableDeclarationList extends AstItem {
-  constructor(children) {
-    super(children);
-  }
-}
-
-class VariableDeclaration extends AstItem {
-  constructor(children) {
-    super(children);
+      if (scope.__break || scope.__continue) {
+        return;
+      }
+    }
   }
 }
 
@@ -573,26 +735,72 @@ class ExpressionStatement extends AstItem {
 }
 
 class IfStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(expression, statement, elseStatement) {
+    super([expression, statement, elseStatement].filter(Boolean));
+
+    this.expression = expression;
+    this.statement = statement;
+    this.elseStatement = elseStatement;
+  }
+
+  run(scope) {
+    const expressionValue = this.expression.run(scope).valueOf();
+    if (expressionValue) {
+      this.statement.run(scope);
+    } else if (this.elseStatement) {
+      this.elseStatement.run(scope);
+    }
   }
 }
 
 class IterationStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(name, expressions, statement) {
+    super([...Object.values(expressions), statement]);
+    this.name = name;
+    this.expressions = expressions;
+    this.statement = statement;
+  }
+
+  run(scope) {
+    const { initialExpression, continueExpression } = this.expressions;
+    const initialExpressionValue = (initialExpression || continueExpression)
+      .run(scope)
+      .valueOf();
+
+    if (!initialExpressionValue) return;
+
+    let loop;
+    do {
+      this.statement.run(scope);
+      if (scope.__break) {
+        delete scope.__break;
+        break;
+      }
+      if (scope.__continue) {
+        delete scope.__continue;
+      }
+      loop = continueExpression.run(scope).valueOf();
+    } while (loop);
   }
 }
 
 class ContinueStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor() {
+    super([]);
+  }
+
+  run(scope) {
+    scope.__continue = true;
   }
 }
 
 class BreakStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor() {
+    super([]);
+  }
+
+  run(scope) {
+    scope.__break = true;
   }
 }
 
@@ -681,11 +889,21 @@ class Function extends AstItem {
     this.identifier = identifier;
     this.params = params;
     this.body = body;
+
+    this.mustBe('identifier', Identifier);
+  }
+
+  valueOf() {
+    return this.toStringAll();
+  }
+
+  typeOf() {
+    return 'function';
   }
 
   run(scope) {
     if (this.identifier) {
-      scope[this.identifier.identifierName] = this;
+      scope[this.identifier.name] = this;
     }
     return this;
   }
@@ -712,8 +930,15 @@ class FunctionExpression extends Function {
 }
 
 class FormalParameterList extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(identifiers) {
+    super(identifiers);
+
+    if (
+      !Array.isArray(identifiers) ||
+      !identifiers.every(x => x instanceof Identifier)
+    ) {
+      throw new Error('FormalParameterList expects array of identifiers');
+    }
   }
 }
 
@@ -753,38 +978,44 @@ class Name extends AstItem {
   }
 }
 
-class VarStatement extends AstItem {
+class VariableStatement extends AstItem {
   constructor(children) {
     super(children);
   }
 }
 
-class VarDeclarationList extends AstItem {
+class VariableDeclarationList extends AstItem {
   constructor(children) {
     super(children);
   }
 }
 
-class VarDeclaration extends AstItem {
+class VariableDeclaration extends AstItem {
   constructor(identifier, initialiser) {
     super([initialiser].filter(x => x));
     this.identifier = identifier;
     this.initialiser = initialiser;
+
+    if (!identifier || !identifier instanceof Identifier) {
+      throw new Errror('identifier must be an Identifier, got:' + Identifier);
+    }
   }
 
   run(scope) {
-    const id = this.identifier.identifierName;
+    const id = this.identifier.name;
     scope[id] = this.initialiser.run(scope);
   }
 
   toString(pad = '') {
-    return `${pad}[VarDeclaration'${this.identifier}']`;
+    return `${pad}[VariableDeclaration'${this.identifier.name}']`;
   }
 }
 
 module.exports = {
   PrimaryExpression,
   Literal,
+  True,
+  False,
   Identifier,
   ArrayLiteral,
   ElementList,
@@ -861,8 +1092,5 @@ module.exports = {
   SourceElements,
   SourceElement,
   ImportStatement,
-  Name,
-  VarStatement,
-  VarDeclarationList,
-  VarDeclaration
+  Name
 };
