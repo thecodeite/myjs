@@ -535,16 +535,16 @@ test('case return statement', () => {
   function who(name) {
     switch(name) {
       case 'sam': return 'Sam Plews';
-      case 'sophie': return 'Sophie Koonin';
+      case 'bob': return 'Bob Koonin';
     }
   }
 
   var sam = who('sam');
-  var sophie = who('sophie');
+  var bob = who('bob');
   `;
   const { scope } = run(src);
   expect(scope.sam.data).toEqual('Sam Plews');
-  expect(scope.sophie.data).toEqual('Sophie Koonin');
+  expect(scope.bob.data).toEqual('Bob Koonin');
 });
 
 test('case default return statement', () => {
@@ -552,19 +552,19 @@ test('case default return statement', () => {
   function who(name) {
     switch(name) {
       case 'sam': return 'Sam Plews';
-      case 'sophie': return 'Sophie Koonin';
+      case 'bob': return 'Bob Koonin';
       default: return 'Anonymouse'
     }
   }
 
   var sam = who('sam');
-  var sophie = who('sophie');
   var bob = who('bob');
+  var charlie = who('charlie');
   `;
   const { scope } = run(src);
   expect(scope.sam.data).toEqual('Sam Plews');
-  expect(scope.sophie.data).toEqual('Sophie Koonin');
-  expect(scope.bob.data).toEqual('Anonymouse');
+  expect(scope.bob.data).toEqual('Bob Koonin');
+  expect(scope.charlie.data).toEqual('Anonymouse');
 });
 
 test('case fallthrough statement', () => {
@@ -573,20 +573,20 @@ test('case fallthrough statement', () => {
     var res = ''
     switch(name) {
       case 'sam': res += 'Sam ';
-      case 'sophie': res += 'Sophie ';
+      case 'bob': res += 'Bob ';
       default: res += 'Anonymouse';
     }
     return res;
   }
 
   var sam = who('sam');
-  var sophie = who('sophie');
   var bob = who('bob');
+  var charlie = who('charlie');
   `;
   const { scope } = run(src);
-  expect(scope.sam.data).toEqual('Sam Sophie Anonymouse');
-  expect(scope.sophie.data).toEqual('Sophie Anonymouse');
-  expect(scope.bob.data).toEqual('Anonymouse');
+  expect(scope.sam.data).toEqual('Sam Bob Anonymouse');
+  expect(scope.bob.data).toEqual('Bob Anonymouse');
+  expect(scope.charlie.data).toEqual('Anonymouse');
 });
 
 test('case break statement', () => {
@@ -595,20 +595,20 @@ test('case break statement', () => {
     var res = ''
     switch(name) {
       case 'sam': res = 'Sam'; break;
-      case 'sophie': res = 'Sophie'; break;
+      case 'bob': res = 'Bob'; break;
       default: res = 'Anonymouse'; break;
     }
     return res;
   }
 
   var sam = who('sam');
-  var sophie = who('sophie');
   var bob = who('bob');
+  var charlie = who('charlie');
   `;
   const { scope } = run(src);
   expect(scope.sam.data).toEqual('Sam');
-  expect(scope.sophie.data).toEqual('Sophie');
-  expect(scope.bob.data).toEqual('Anonymouse');
+  expect(scope.bob.data).toEqual('Bob');
+  expect(scope.charlie.data).toEqual('Anonymouse');
 });
 
 test('console.log', () => {
@@ -626,4 +626,89 @@ test('array length', () => {
   `;
   const { scope } = run(src);
   expect(scope.x.data).toEqual(3);
+});
+
+test('try', () => {
+  const src = `
+    try {
+      console.log('good');
+    } catch (e) {
+      console.log('bad')
+    }
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual('good\n');
+});
+
+test('try throw catch', () => {
+  const src = `
+    try {
+      console.log('good');
+      throw 'error';
+      console.log('bad');
+    } catch (e) {
+      console.log(e);
+      console.log('caught');
+    }
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual('good\nerror\ncaught\n');
+});
+
+test('try throw finally', () => {
+  const src = `
+    try {
+      console.log('good');
+      throw 'error';
+      console.log('bad');
+    } finally {
+      console.log('finally');
+    }
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual('good\nfinally\n');
+});
+
+test('try loop throw catch', () => {
+  const src = `
+    try {
+      console.log('good');
+      do {
+        console.log('loop-start');
+        throw 'error';
+        console.log('loop-end');
+      } while(false)
+      console.log('bad');
+    } catch (e) {
+      console.log(e);
+      console.log('caught');
+    }
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual(
+    'good\nloop-start\nerror\ncaught\n'
+  );
+});
+
+test('try func throw catch', () => {
+  const src = `
+    function f() {
+      console.log('func-start');
+      throw 'error';
+      console.log('func-end');
+    }
+
+    try {
+      console.log('good');
+      f();
+      console.log('bad');
+    } catch (e) {
+      console.log(e);
+      console.log('caught');
+    }
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual(
+    'good\nfunc-start\nerror\ncaught\n'
+  );
 });

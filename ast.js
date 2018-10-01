@@ -1,6 +1,12 @@
 const globalScope = require('./global');
 const NotImplementedError = require('./NotImplementedError');
 
+class Scope {
+  constructor(parentScope) {
+    this.__parentScope = parentScope;
+  }
+}
+
 class StorageSlot {
   constructor(initialData, ref, key) {
     this.data = initialData;
@@ -89,9 +95,10 @@ class AstItem {
 
   run(scope) {
     let res = undefined;
-    this.children.forEach(child => {
+    for (let child of this.children) {
       res = child.run(scope);
-    });
+      if ('__error' in scope) return;
+    }
     return res;
   }
 
@@ -234,9 +241,8 @@ class Identifier extends AstItem {
 
     let id = this.name;
     while (currentScope) {
-      let val = currentScope[id];
-      if (val !== undefined) {
-        return val;
+      if (id in currentScope) {
+        return currentScope[id];
       }
       currentScope = currentScope.__parentScope;
     }
@@ -408,7 +414,7 @@ class CallExpression extends AstItem {
     if (!func instanceof Function) {
       throw new Error(func + ' is not a function');
     }
-    const newScope = { __parentScope: scope };
+    const newScope = new Scope(scope);
 
     const argValues = this.args.run(scope);
     newScope['arguments'] = new StorageSlot(argValues);
@@ -421,7 +427,11 @@ class CallExpression extends AstItem {
       }
     }
 
-    return func.runBody(newScope);
+    const funcResult = func.runBody(newScope);
+    if ('__error' in newScope) {
+      scope.__error = newScope.__error;
+    }
+    return funcResult;
   }
 }
 
@@ -718,12 +728,6 @@ class Expression extends AstItem {
   }
 }
 
-class ExpressionNoIn extends AstItem {
-  constructor(...children) {
-    super(...children);
-  }
-}
-
 class Statement extends AstItem {
   constructor(...children) {
     super(...children);
@@ -731,8 +735,10 @@ class Statement extends AstItem {
 }
 
 class Block extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(statementList) {
+    super(statementList);
+    this.mustBe(() => statementList, StatementList);
+    this.statementList = statementList;
   }
 }
 
@@ -749,7 +755,8 @@ class StatementList extends AstItem {
       if (
         '__break' in scope ||
         '__continue' in scope ||
-        '__returnValue' in scope
+        '__returnValue' in scope ||
+        '__error' in scope
       ) {
         return;
       }
@@ -928,13 +935,15 @@ class SwitchStatement extends AstItem {
 
   run(scope) {
     const expressionValue = this.expression.run(scope);
-    const newScope = {
-      __parentScope: scope,
-      __switchOn: expressionValue
-    };
+    const newScope = new Scope(scope);
+    newScope.__switchOn = expressionValue;
+
     this.caseBlock.run(newScope);
 
     scope.__returnValue = newScope.__returnValue;
+    if ('__error' in newScope) {
+      scope.__error = newScope.__error;
+    }
   }
 }
 
@@ -1019,26 +1028,66 @@ class LabelledStatement extends AstItem {
 }
 
 class ThrowStatement extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(expression) {
+    super(expression);
+    this.expression = expression;
+  }
+
+  run(scope) {
+    const error = this.expression.run(scope);
+    scope.__error = error;
   }
 }
 
 class TryStatement extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(block, catchBlock, finallyBlock) {
+    super(...[block, catchBlock, finallyBlock].filter(Boolean));
+
+    this.block = block;
+    this.catchBlock = catchBlock;
+    this.finallyBlock = finallyBlock;
+  }
+
+  run(scope) {
+    const newScope = new Scope(scope);
+
+    this.block.run(newScope);
+
+    if (this.catchBlock && '__error' in newScope) {
+      this.catchBlock.run(newScope);
+    }
+
+    if (this.finallyBlock) {
+      this.finallyBlock.run(newScope);
+    }
   }
 }
 
 class Catch extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(identifier, block) {
+    super(identifier, block);
+    this.identifier = identifier;
+    this.block = block;
+  }
+
+  run(scope) {
+    scope[this.identifier.name] = scope.__error;
+    delete scope.__error;
+    this.block.run(scope);
   }
 }
 
 class Finally extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(block) {
+    super(block);
+    this.block = block;
+  }
+
+  run(scope) {
+    if ('__error' in scope) {
+      delete scope.__error;
+    }
+    this.block.run(scope);
   }
 }
 
@@ -1138,6 +1187,7 @@ class FunctionBody extends AstItem {
   run(scope) {
     this.children.every(child => {
       child.run(scope);
+      if ('__error' in scope) return;
       return !'__returnValue' in scope;
     });
     return scope.__returnValue;
@@ -1150,8 +1200,11 @@ class Program extends AstItem {
   }
 
   run(scope) {
-    scope.__parentScope = globalScopeInstance;
+    scope.__parentScope = globalScope(NativeCode, StorageSlot);
     super.run(scope);
+    if ('__error' in scope) {
+      console.error('Uncaught exception:', scope.__error);
+    }
   }
 }
 
@@ -1307,6 +1360,3 @@ module.exports = {
   ImportStatement,
   Name
 };
-
-const globalScopeInstance = globalScope(NativeCode, StorageSlot);
-console.log('globalScopeInstance:', globalScopeInstance);

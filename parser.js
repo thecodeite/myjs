@@ -140,12 +140,8 @@ const idStatements = {
     throw new NotImplementedError('readStatement: with');
   },
   switch: readSwitchStatement,
-  throw: () => {
-    throw new NotImplementedError('readStatement: throw');
-  },
-  try: () => {
-    throw new NotImplementedError('readStatement: try');
-  }
+  throw: readThrowStatement,
+  try: readTryStatement
 };
 /* Statement	::=	Block
 |	VariableStatement
@@ -178,6 +174,53 @@ function readStatement(ctx) {
   } else {
     return readExpressionStatement(ctx);
   }
+}
+
+// ThrowStatement	::=	"throw" Expression ( ";" )?
+function readThrowStatement(ctx) {
+  dlog('readTryStatement');
+  ctx.itr.read('throw');
+  const expression = readExpression(ctx);
+  skipSemi(ctx);
+  return new ast.ThrowStatement(expression);
+}
+
+// TryStatement	::=	"try" Block ( ( Finally | Catch ( Finally )? ) )
+function readTryStatement(ctx) {
+  dlog('readTryStatement');
+  ctx.itr.read('try');
+  const block = readBlock(ctx);
+  let catchBlock, finallyBlock;
+  if (ctx.itr.peek.v === 'finally') {
+    finallyBlock = readFinally(ctx);
+  } else {
+    catchBlock = readCatch(ctx);
+    if (ctx.itr.peek.v === 'finally') {
+      finallyBlock = readFinally(ctx);
+    }
+  }
+  return new ast.TryStatement(block, catchBlock, finallyBlock);
+}
+
+// Catch	::=	"catch" "(" Identifier ")" Block
+function readCatch(ctx) {
+  dlog('readCatch');
+
+  ctx.itr.read('catch');
+  ctx.itr.read('(');
+  const identifier = readIdentifier(ctx);
+  ctx.itr.read(')');
+  const block = readBlock(ctx);
+  return new ast.Catch(identifier, block);
+}
+
+// Finally	::=	"finally" Block
+function readFinally(ctx) {
+  dlog('readFinally');
+
+  ctx.itr.read('finally');
+  const block = readBlock(ctx);
+  return new ast.Finally(block);
 }
 
 // SwitchStatement	::=	"switch" "(" Expression ")" CaseBlock

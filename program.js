@@ -2,19 +2,13 @@ const tokenize = require('./tokenizer');
 const { readProgram } = require('./parser');
 
 const src = `
-function who(name) {
-  var res = ''
-  switch(name) {
-    case 'sam': res += 'Sam';
-    case 'sophie': res += 'Sophile';
-    default: res += 'Anonymouse';
-  }
-  return name;
+try {
+  console.log('good');
+  throw 'error';
+  console.log('bad');
+} finally {
+  console.log('finally');
 }
-
-var sam = who('sam');
-var sophie = who('sophie');
-var bob = who('bob');
 `;
 
 const context = {
