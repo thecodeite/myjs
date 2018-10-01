@@ -17,7 +17,7 @@ function readProgram(ctx) {
   dlog('readProgram');
   ctx.noIn = [];
   const elements = readSourceElements(ctx);
-  return new ast.Program([elements]);
+  return new ast.Program(elements);
 }
 
 // SourceElements ::= ( SourceElement )+
@@ -108,14 +108,15 @@ function readFunctionBody(ctx) {
     sourceElements = readSourceElements(ctx);
   }
   ctx.itr.read('}');
-  return new ast.FunctionBody([sourceElements]);
+  return new ast.FunctionBody(sourceElements);
 }
 
-function readStatementList(ctx) {
+// StatementList	::=	( Statement )+
+function readStatementList(ctx, terminators) {
   dlog('readStatementList');
   const statements = [];
 
-  while (ctx.itr.peek.v !== '}') {
+  while (!terminators.includes(ctx.itr.peek.v)) {
     statements.push(readStatement(ctx));
     skipEmptyLines(ctx);
   }
@@ -138,9 +139,7 @@ const idStatements = {
   with: () => {
     throw new NotImplementedError('readStatement: with');
   },
-  switch: () => {
-    throw new NotImplementedError('readStatement: switch');
-  },
+  switch: readSwitchStatement,
   throw: () => {
     throw new NotImplementedError('readStatement: throw');
   },
@@ -148,24 +147,23 @@ const idStatements = {
     throw new NotImplementedError('readStatement: try');
   }
 };
-function readStatement(ctx) {
-  /* Statement	::=	Block
-                |	VariableStatement
-                |	EmptyStatement
-                |	LabelledStatement
-                |	ExpressionStatement
-                |	IfStatement
-                |	IterationStatement
-                |	ContinueStatement
-                |	BreakStatement
-                |	ImportStatement
-                |	ReturnStatement
-                |	WithStatement
-                |	SwitchStatement
-                |	ThrowStatement
-                |	TryStatement
+/* Statement	::=	Block
+|	VariableStatement
+|	EmptyStatement
+|	LabelledStatement
+|	ExpressionStatement
+|	IfStatement
+|	IterationStatement
+|	ContinueStatement
+|	BreakStatement
+|	ImportStatement
+|	ReturnStatement
+|	WithStatement
+|	SwitchStatement
+|	ThrowStatement
+|	TryStatement
 */
-
+function readStatement(ctx) {
   dlog('readStatement');
   skipEmptyLines(ctx);
   const peek = ctx.itr.peek.v;
@@ -180,6 +178,68 @@ function readStatement(ctx) {
   } else {
     return readExpressionStatement(ctx);
   }
+}
+
+// SwitchStatement	::=	"switch" "(" Expression ")" CaseBlock
+function readSwitchStatement(ctx) {
+  dlog('readSwitchStatement');
+  ctx.itr.read('switch');
+  ctx.itr.read('(');
+  const expression = readExpression(ctx);
+  ctx.itr.read(')');
+  const caseBlock = readCaseBlock(ctx);
+
+  return new ast.SwitchStatement(expression, caseBlock);
+}
+
+// CaseBlock	::=	"{" ( CaseClauses )? ( "}" | DefaultClause ( CaseClauses )? "}" )
+function readCaseBlock(ctx) {
+  dlog('readCaseBlock');
+  ctx.itr.read('{');
+
+  const clausesA = [...readCaseClauses(ctx)];
+  let defaultClause = [];
+  let clausesB = [];
+  if (ctx.itr.peek.v !== '}') {
+    defaultClause = [...readDefaultClause(ctx)];
+    clausesB = [...readCaseClauses(ctx)];
+  }
+
+  skipEmptyLines(ctx);
+  ctx.itr.read('}');
+  const clauses = [...clausesA, ...defaultClause, ...clausesB];
+  return new ast.CaseBlock(clauses);
+}
+
+// CaseClauses	::=	( CaseClause )+
+function* readCaseClauses(ctx) {
+  dlog('readCaseClauses');
+  skipEmptyLines(ctx);
+  while (ctx.itr.peek.v === 'case') {
+    yield readCaseClause(ctx);
+    skipEmptyLines(ctx);
+  }
+}
+
+// CaseClause	::=	( ( "case" Expression ":" ) ) ( StatementList )?
+function readCaseClause(ctx) {
+  dlog('readCaseClause');
+  ctx.itr.read('case');
+  const expression = readExpression(ctx);
+  ctx.itr.read(':');
+  const statementList = readStatementList(ctx, ['case', 'default', '}']);
+  return new ast.CaseClause(expression, statementList);
+}
+
+// DefaultClause	::=	( ( "default" ":" ) ) ( StatementList )?
+function* readDefaultClause(ctx) {
+  dlog('readDefaultClause');
+  if (ctx.itr.peek.v !== 'default') return;
+  ctx.itr.read('default');
+  ctx.itr.read(':');
+  const statementList = readStatementList(ctx, ['case', 'default', '}']);
+
+  yield new ast.DefaultClause(statementList);
 }
 
 // ContinueStatement	::=	"continue" ( Identifier )? ( ";" )?
@@ -234,10 +294,10 @@ function readIfStatement(ctx) {
 function readBlock(ctx) {
   dlog('readBlock');
   ctx.itr.read('{');
-  const statementList = readStatementList(ctx);
+  const statementList = readStatementList(ctx, ['}']);
   ctx.itr.read('}');
 
-  return new ast.Block([statementList]);
+  return new ast.Block(statementList);
 }
 
 /*
@@ -605,7 +665,7 @@ function readArguments(ctx) {
     argList = [readArgumentList(ctx)];
   }
   ctx.itr.read(')');
-  return new ast.Arguments(argList);
+  return new ast.Arguments(...argList);
 }
 
 // ArgumentList	::=	AssignmentExpression ( "," AssignmentExpression )*
@@ -617,7 +677,7 @@ function readArgumentList(ctx) {
     argumentList.push(readAssignmentExpression(ctx));
   }
 
-  return new ast.ArgumentList(argumentList);
+  return new ast.ArgumentList(...argumentList);
 }
 
 function readMemberExpression(ctx) {
@@ -770,7 +830,7 @@ function readPropertyNameAndValueList(ctx) {
     elements.push(readPropertyNameAndValue(ctx));
   }
 
-  return new ast.PropertyNameAndValueList(elements);
+  return new ast.PropertyNameAndValueList(...elements);
 }
 // PropertyNameAndValue	::=	PropertyName ":" AssignmentExpression
 function readPropertyNameAndValue(ctx) {
@@ -824,7 +884,7 @@ function readVariableDeclarationList(ctx) {
 function readVariableDeclaration(ctx) {
   dlog('readVariableDeclaration');
   const identifier = readIdentifier(ctx);
-  const initialiser = ctx.itr.peek.v === '=' ? readInitialiser(ctx) : undefined;
+  const initialiser = ctx.itr.peek.v === '=' ? readInitialiser(ctx) : null;
   return new ast.VariableDeclaration(identifier, initialiser);
 }
 

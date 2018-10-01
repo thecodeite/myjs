@@ -58,10 +58,7 @@ class StorageSlot {
 }
 
 class AstItem {
-  constructor(children) {
-    if (!Array.isArray(children)) {
-      throw new Error(this + 'children must be an array. Got:' + children);
-    }
+  constructor(...children) {
     children.forEach(x => {
       if (x === null || x === undefined) {
         throw new Error(this + ' all children must be defined, got: ' + x);
@@ -123,14 +120,34 @@ class AstItem {
   }
 
   mustBeOrNull(name, t) {
-    if (this[name] === null) return;
+    if (name() === null) return;
     this.mustBe(name, t);
   }
 
   mustBe(name, t) {
-    if (!(this[name] instanceof t)) {
+    if (!(name() instanceof t)) {
       throw new Error(
-        `${this} is expecting property ${name} to be ${t} but got ${this[name]}`
+        `${this} is expecting property ${name} to be ${
+          t.name
+        } but got ${name()}`
+      );
+    }
+  }
+
+  allMustBe(name, t) {
+    const arr = name();
+    if (!Array.isArray(arr)) {
+      throw new Error(
+        `${this} is expecting property ${name} to be an array but got: ${name()}`
+      );
+    }
+
+    const badOne = arr.find(item => !(item instanceof t));
+    if (badOne) {
+      throw new Error(
+        `${this} is expecting every item of property ${name} to be an ${
+          t.name
+        } but got: ${badOne}`
       );
     }
   }
@@ -138,7 +155,7 @@ class AstItem {
 
 class BinaryExpressionAstItem extends AstItem {
   constructor(left, right) {
-    super([left, right].filter(x => x));
+    super(...[left, right].filter(x => x));
     this.left = left;
     this.right = right;
   }
@@ -176,14 +193,14 @@ class BinaryExpressionOperatorsAstItem extends BinaryExpressionAstItem {
 /* ------------------------------------------------------------------------- */
 
 class PrimaryExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Literal extends AstItem {
   constructor(value) {
-    super([]);
+    super();
     this.value = value;
   }
 
@@ -201,7 +218,7 @@ const False = new Literal(false);
 
 class Identifier extends AstItem {
   constructor(name) {
-    super([]);
+    super();
     if (typeof name !== 'string') {
       throw new Error('name must be string');
     }
@@ -230,7 +247,7 @@ class Identifier extends AstItem {
 
 class ArrayLiteral extends AstItem {
   constructor(elementList) {
-    super([elementList]);
+    super(elementList);
     this.elementList = elementList;
   }
 
@@ -241,7 +258,7 @@ class ArrayLiteral extends AstItem {
 
 class ElementList extends AstItem {
   constructor(elements) {
-    super(elements);
+    super(...elements);
     this.elements = elements;
   }
 
@@ -252,7 +269,7 @@ class ElementList extends AstItem {
 
 class ObjectLiteral extends AstItem {
   constructor(propertyNameAndValueList) {
-    super([propertyNameAndValueList].filter(x => x));
+    super(...[propertyNameAndValueList].filter(x => x));
     this.propertyNameAndValueList = propertyNameAndValueList;
   }
 
@@ -272,8 +289,8 @@ class ObjectLiteral extends AstItem {
 }
 
 class PropertyNameAndValueList extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 
   run(scope) {
@@ -283,7 +300,7 @@ class PropertyNameAndValueList extends AstItem {
 
 class PropertyNameAndValue extends AstItem {
   constructor(key, value) {
-    super([value]);
+    super(value);
     if (!key instanceof Identifier) {
       throw new Error('key must be Identifier');
     }
@@ -300,14 +317,14 @@ class PropertyNameAndValue extends AstItem {
 }
 
 class PropertyName extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class MemberExpression extends AstItem {
   constructor(expression) {
-    super([expression]);
+    super(expression);
     this.expression = expression;
   }
 
@@ -317,14 +334,14 @@ class MemberExpression extends AstItem {
 }
 
 class AllocationExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class MemberExpressionPart extends AstItem {
   constructor(type, identifierOrExpression, target) {
-    super([target, identifierOrExpression]);
+    super(target, identifierOrExpression);
     this.type = type;
     this.target = target;
 
@@ -367,7 +384,7 @@ class MemberExpressionPart extends AstItem {
 
 class CallExpression extends AstItem {
   constructor(memExp, args) {
-    super([memExp, args]);
+    super(memExp, args);
 
     this.memExp = memExp;
     this.args = args;
@@ -409,20 +426,20 @@ class CallExpression extends AstItem {
 }
 
 class CallExpressionPart extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Arguments extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class ArgumentList extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 
   run(scope) {
@@ -432,7 +449,7 @@ class ArgumentList extends AstItem {
 
 class LeftHandSideExpression extends AstItem {
   constructor(memberExpression) {
-    super([memberExpression]);
+    super(memberExpression);
 
     if (
       !(
@@ -460,11 +477,11 @@ const PostfixOperator = {
 
 class PostfixExpression extends AstItem {
   constructor(leftHandSizeExpression, postfixOperator) {
-    super([leftHandSizeExpression]);
+    super(leftHandSizeExpression);
+    this.mustBe(() => leftHandSizeExpression, LeftHandSideExpression);
+
     this.leftHandSizeExpression = leftHandSizeExpression;
     this.postfixOperator = PostfixOperator[postfixOperator];
-
-    this.mustBe('leftHandSizeExpression', LeftHandSideExpression);
   }
 
   run(scope) {
@@ -492,7 +509,7 @@ const UnaryOperator = {
 const MutatingUnaryOperators = ['++', '--'];
 class UnaryExpression extends AstItem {
   constructor(unaryOperator, unaryExpression) {
-    super([unaryExpression]);
+    super(unaryExpression);
 
     this.unaryOperator = unaryOperator;
     this.unaryOperatorF = UnaryOperator[unaryOperator];
@@ -644,8 +661,8 @@ class LogicalORExpression extends BinaryExpressionAstItem {
 }
 
 class ConditionalExpression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
@@ -653,6 +670,7 @@ const AssignmentOperator = {
   '=': (_, right) => right,
   '/=': (left, right) => left / right,
   '%=': (left, right) => left % right,
+  '*=': (left, right) => left * right,
   '+=': (left, right) => left + right,
   '-=': (left, right) => left - right,
   '<<=': (left, right) => left << right,
@@ -664,7 +682,7 @@ const AssignmentOperator = {
 };
 class AssignmentExpression extends AstItem {
   constructor(left, right, operator) {
-    super([left, right]);
+    super(left, right);
     if (!left || !left instanceof LeftHandSideExpression) {
       throw new Error(
         'Expected left to be LeftHandSideExpression but got: ' + left
@@ -695,32 +713,32 @@ class AssignmentExpression extends AstItem {
 }
 
 class Expression extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class ExpressionNoIn extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Statement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Block extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class StatementList extends AstItem {
   constructor(statements) {
-    super(statements);
+    super(...statements);
     this.statements = statements;
   }
 
@@ -728,7 +746,11 @@ class StatementList extends AstItem {
     for (let statement of this.statements) {
       statement.run(scope);
 
-      if (scope.__break || scope.__continue) {
+      if (
+        '__break' in scope ||
+        '__continue' in scope ||
+        '__returnValue' in scope
+      ) {
         return;
       }
     }
@@ -736,26 +758,26 @@ class StatementList extends AstItem {
 }
 
 class Initialiser extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class EmptyStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class ExpressionStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class IfStatement extends AstItem {
   constructor(expression, statement, elseStatement) {
-    super([expression, statement, elseStatement].filter(Boolean));
+    super(...[expression, statement, elseStatement].filter(Boolean));
 
     this.expression = expression;
     this.statement = statement;
@@ -774,7 +796,7 @@ class IfStatement extends AstItem {
 
 class IterationStatement extends AstItem {
   constructor(name, expressions, statement) {
-    super([...Object.values(expressions), statement]);
+    super(...[...Object.values(expressions), statement]);
     this.name = name;
     this.expressions = expressions;
     this.statement = statement;
@@ -858,7 +880,7 @@ class IterationStatement extends AstItem {
 
 class ContinueStatement extends AstItem {
   constructor() {
-    super([]);
+    super();
   }
 
   run(scope) {
@@ -868,7 +890,7 @@ class ContinueStatement extends AstItem {
 
 class BreakStatement extends AstItem {
   constructor() {
-    super([]);
+    super();
   }
 
   run(scope) {
@@ -878,7 +900,7 @@ class BreakStatement extends AstItem {
 
 class ReturnStatement extends AstItem {
   constructor(expression) {
-    super([expression]);
+    super(expression);
     this.expression = expression;
   }
 
@@ -889,81 +911,150 @@ class ReturnStatement extends AstItem {
 }
 
 class WithStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class SwitchStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(expression, caseBlock) {
+    super(expression, caseBlock);
+
+    this.expression = expression;
+    this.caseBlock = caseBlock;
+
+    this.mustBe(() => caseBlock, CaseBlock);
+  }
+
+  run(scope) {
+    const expressionValue = this.expression.run(scope);
+    const newScope = {
+      __parentScope: scope,
+      __switchOn: expressionValue
+    };
+    this.caseBlock.run(newScope);
+
+    scope.__returnValue = newScope.__returnValue;
   }
 }
 
 class CaseBlock extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(clauses) {
+    super(...clauses);
+    this.clauses = clauses;
+
+    this.allMustBe(() => clauses, Clause);
+  }
+
+  run(scope) {
+    const clauseValues = this.clauses.map(clause => {
+      if (clause instanceof CaseClause) {
+        return {
+          clause,
+          value: clause.expression.run(scope)
+        };
+      } else if (clause instanceof DefaultClause) {
+        return {
+          clause,
+          isDefault: true
+        };
+      }
+    });
+
+    let startIndex = clauseValues.findIndex(
+      x => x.value && x.value.valueOf() === scope.__switchOn.valueOf()
+    );
+
+    if (startIndex === -1) {
+      startIndex = clauseValues.findIndex(x => x.isDefault);
+    }
+
+    if (startIndex !== -1) {
+      for (var i = startIndex; i < this.clauses.length; i++) {
+        this.clauses[i].statementList.run(scope);
+
+        if (
+          '__break' in scope ||
+          '__continue' in scope ||
+          '__returnValue' in scope
+        ) {
+          return;
+        }
+      }
+    }
   }
 }
 
-class CaseClauses extends AstItem {
-  constructor(children) {
-    super(children);
+class Clause extends AstItem {
+  constructor(expression, statementList) {
+    if (expression) {
+      super(expression, statementList);
+    } else {
+      super(statementList);
+    }
+
+    this.expression = expression;
+    this.statementList = statementList;
+
+    this.mustBe(() => statementList, StatementList);
   }
 }
 
-class CaseClause extends AstItem {
-  constructor(children) {
-    super(children);
+class CaseClause extends Clause {
+  constructor(expression, statementList) {
+    super(expression, statementList);
   }
 }
 
-class DefaultClause extends AstItem {
-  constructor(children) {
-    super(children);
+class DefaultClause extends Clause {
+  constructor(statementList) {
+    super(null, statementList);
   }
 }
 
 class LabelledStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class ThrowStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class TryStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Catch extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Finally extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Function extends AstItem {
   constructor(identifier, params, body) {
-    super(body ? [body] : []);
+    super(...[body].filter(Boolean));
+    this.mustBeOrNull(() => identifier, Identifier);
+    this.mustBe(() => params, FormalParameterList);
 
     this.identifier = identifier;
     this.params = params;
     this.body = body;
+  }
 
-    this.mustBeOrNull('identifier', Identifier);
-    this.mustBe('params', FormalParameterList);
+  toJSON() {
+    return this.toString();
   }
 
   valueOf() {
@@ -991,11 +1082,19 @@ class FunctionDeclaration extends Function {
   constructor(identifier, params, body) {
     super(identifier, params, body);
   }
+
+  toString(pad = '') {
+    return `${pad}[FunctionDeclaration:'${this.identifier.name}']`;
+  }
 }
 
 class FunctionExpression extends Function {
   constructor(identifier, params, body) {
     super(identifier, params, body);
+  }
+
+  toString(pad = '') {
+    return `${pad}[FunctionExpression:'${this.identifier.name}']`;
   }
 }
 
@@ -1020,7 +1119,7 @@ class NativeCode extends Function {
 
 class FormalParameterList extends AstItem {
   constructor(identifiers) {
-    super(identifiers);
+    super(...identifiers);
 
     if (
       !Array.isArray(identifiers) ||
@@ -1032,8 +1131,8 @@ class FormalParameterList extends AstItem {
 }
 
 class FunctionBody extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 
   run(scope) {
@@ -1046,8 +1145,8 @@ class FunctionBody extends AstItem {
 }
 
 class Program extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 
   run(scope) {
@@ -1058,37 +1157,37 @@ class Program extends AstItem {
 
 class SourceElements extends AstItem {
   constructor(children) {
-    super(children);
+    super(...children);
   }
 }
 
 class SourceElement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class ImportStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class Name extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(...children) {
+    super(...children);
   }
 }
 
 class VariableStatement extends AstItem {
   constructor(child) {
-    super([child]);
+    super(child);
   }
 }
 
 class VariableDeclarationList extends AstItem {
   constructor(variableDeclarations) {
-    super(variableDeclarations);
+    super(...variableDeclarations);
     this.variableDeclarations = variableDeclarations;
   }
 
@@ -1101,13 +1200,12 @@ class VariableDeclarationList extends AstItem {
 
 class VariableDeclaration extends AstItem {
   constructor(identifier, initialiser) {
-    super([initialiser].filter(x => x));
+    super(...[initialiser].filter(Boolean));
+
+    this.mustBe(() => identifier, Identifier);
+
     this.identifier = identifier;
     this.initialiser = initialiser;
-
-    if (!identifier || !identifier instanceof Identifier) {
-      throw new Errror('identifier must be an Identifier, got:' + Identifier);
-    }
   }
 
   run(scope) {
@@ -1189,7 +1287,7 @@ module.exports = {
   WithStatement,
   SwitchStatement,
   CaseBlock,
-  CaseClauses,
+  Clause,
   CaseClause,
   DefaultClause,
   LabelledStatement,

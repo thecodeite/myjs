@@ -2,7 +2,19 @@ const tokenize = require('./tokenizer');
 const { readProgram } = require('./parser');
 
 const src = `
-var y = typeof function(){};
+function who(name) {
+  var res = ''
+  switch(name) {
+    case 'sam': res += 'Sam';
+    case 'sophie': res += 'Sophile';
+    default: res += 'Anonymouse';
+  }
+  return name;
+}
+
+var sam = who('sam');
+var sophie = who('sophie');
+var bob = who('bob');
 `;
 
 const context = {

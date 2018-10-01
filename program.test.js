@@ -332,6 +332,7 @@ describe('test assignment operators', () => {
   }
   it('=', testAsgnOp('=', 8));
   it('/=', testAsgnOp('/=', 2));
+  it('*=', testAsgnOp('*=', 128));
   it('%=', testAsgnOp('%=', 0));
   it('+=', testAsgnOp('+=', 24));
   it('-=', testAsgnOp('-=', 8));
@@ -527,6 +528,87 @@ test('for in loop', () => {
   `;
   const { scope } = run(src);
   expect(scope.x.data).toEqual(10);
+});
+
+test('case return statement', () => {
+  const src = `
+  function who(name) {
+    switch(name) {
+      case 'sam': return 'Sam Plews';
+      case 'sophie': return 'Sophie Koonin';
+    }
+  }
+
+  var sam = who('sam');
+  var sophie = who('sophie');
+  `;
+  const { scope } = run(src);
+  expect(scope.sam.data).toEqual('Sam Plews');
+  expect(scope.sophie.data).toEqual('Sophie Koonin');
+});
+
+test('case default return statement', () => {
+  const src = `
+  function who(name) {
+    switch(name) {
+      case 'sam': return 'Sam Plews';
+      case 'sophie': return 'Sophie Koonin';
+      default: return 'Anonymouse'
+    }
+  }
+
+  var sam = who('sam');
+  var sophie = who('sophie');
+  var bob = who('bob');
+  `;
+  const { scope } = run(src);
+  expect(scope.sam.data).toEqual('Sam Plews');
+  expect(scope.sophie.data).toEqual('Sophie Koonin');
+  expect(scope.bob.data).toEqual('Anonymouse');
+});
+
+test('case fallthrough statement', () => {
+  const src = `
+  function who(name) {
+    var res = ''
+    switch(name) {
+      case 'sam': res += 'Sam ';
+      case 'sophie': res += 'Sophie ';
+      default: res += 'Anonymouse';
+    }
+    return res;
+  }
+
+  var sam = who('sam');
+  var sophie = who('sophie');
+  var bob = who('bob');
+  `;
+  const { scope } = run(src);
+  expect(scope.sam.data).toEqual('Sam Sophie Anonymouse');
+  expect(scope.sophie.data).toEqual('Sophie Anonymouse');
+  expect(scope.bob.data).toEqual('Anonymouse');
+});
+
+test('case break statement', () => {
+  const src = `
+  function who(name) {
+    var res = ''
+    switch(name) {
+      case 'sam': res = 'Sam'; break;
+      case 'sophie': res = 'Sophie'; break;
+      default: res = 'Anonymouse'; break;
+    }
+    return res;
+  }
+
+  var sam = who('sam');
+  var sophie = who('sophie');
+  var bob = who('bob');
+  `;
+  const { scope } = run(src);
+  expect(scope.sam.data).toEqual('Sam');
+  expect(scope.sophie.data).toEqual('Sophie');
+  expect(scope.bob.data).toEqual('Anonymouse');
 });
 
 test('console.log', () => {
