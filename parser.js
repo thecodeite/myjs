@@ -15,7 +15,7 @@ function skipSemi(ctx) {
 // Program ::= ( SourceElements )? <EOF>
 function readProgram(ctx) {
   dlog('readProgram');
-
+  ctx.noIn = [];
   const elements = readSourceElements(ctx);
   return new ast.Program([elements]);
 }
@@ -77,7 +77,7 @@ function readFunctionDeclarationOrFunctionExpression(ctx, identifierRequired) {
     identifier = readIdentifier(ctx);
   }
   ctx.itr.read('(');
-  let params = [];
+  let params = new ast.FormalParameterList([]);
   if (ctx.itr.peek.v !== ')') {
     params = readFormalParameterList(ctx);
   }
@@ -280,6 +280,73 @@ function readIterationStatement(ctx) {
     );
   }
 
+  if (ctx.itr.peek.v === 'for') {
+    ctx.itr.read('for');
+    ctx.itr.read('(');
+
+    if (ctx.itr.peek.v === 'var') {
+      ctx.itr.read('var');
+      const variableDeclaration = readVariableDeclarationList(ctx);
+      if (ctx.itr.peek.v === ';') {
+        ctx.itr.read(';');
+        const continueExpression = readExpression(ctx);
+        ctx.itr.read(';');
+        const finalExpression = readExpression(ctx);
+        ctx.itr.read(')');
+        const statement = readStatement(ctx);
+
+        return new ast.IterationStatement(
+          'for-var',
+          { variableDeclaration, continueExpression, finalExpression },
+          statement
+        );
+      } else if (ctx.itr.peek.v === 'in') {
+        ctx.itr.read('in');
+        const valueExpression = readExpression(ctx);
+        ctx.itr.read(')');
+        const statement = readStatement(ctx);
+
+        return new ast.IterationStatement(
+          'for-var-in',
+          { variableDeclaration, valueExpression },
+          statement
+        );
+      } else {
+        throw new Error('Unexpected token: ' + ctx.itr.peek.v);
+      }
+    } else {
+      //const leftHandSideExpression = readLeftHandSideExpression(ctx);
+      const expression = readExpressionNoIn(ctx);
+      if (ctx.itr.peek.v === ';') {
+        const initializationExpression = expression;
+        ctx.itr.read(';');
+        const continueExpression = readExpression(ctx);
+        ctx.itr.read(';');
+        const finalExpression = readExpression(ctx);
+        ctx.itr.read(')');
+        const statement = readStatement(ctx);
+
+        return new ast.IterationStatement(
+          'for',
+          { initializationExpression, continueExpression, finalExpression },
+          statement
+        );
+      } else if (ctx.itr.peek.v === 'in') {
+        leftHandSideExpression = expression;
+        ctx.itr.read('in');
+        const valueExpression = readExpression(ctx);
+        ctx.itr.read(')');
+        const statement = readStatement(ctx);
+
+        return new ast.IterationStatement(
+          'for-var-in',
+          { leftHandSideExpression, valueExpression },
+          statement
+        );
+      }
+    }
+  }
+
   throw new NotImplementedError('readIterationStatement ' + ctx.itr.peek.v);
 }
 
@@ -309,7 +376,18 @@ function readExpressionStatement(ctx) {
 
 function readExpression(ctx) {
   dlog('readExpression');
-  return readAssignmentExpression(ctx);
+  ctx.noIn.push(false);
+  const assignmentExpression = readAssignmentExpression(ctx);
+  ctx.noIn.pop();
+  return assignmentExpression;
+}
+
+function readExpressionNoIn(ctx) {
+  dlog('readExpressionNoIn');
+  ctx.noIn.push(true);
+  const assignmentExpression = readAssignmentExpression(ctx);
+  ctx.noIn.pop();
+  return assignmentExpression;
 }
 
 //AssignmentOperator	::=	( "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | ">>>=" | "&=" | "^=" | "|=" )
@@ -411,11 +489,19 @@ function readEqualityExpression(ctx) {
   return child;
 }
 
-const relationalOperators = Object.keys(ast.RelationalOperator);
+const relationalOperatorsWithIn = Object.keys(ast.RelationalOperator);
+const relationalOperatorsNoIn = Object.keys(ast.RelationalOperator).filter(
+  x => x !== 'in'
+);
 // RelationalExpression	::=	ShiftExpression ( RelationalOperator ShiftExpression )*
 function readRelationalExpression(ctx) {
   dlog('readRelationalExpression');
   let child = readShiftExpression(ctx);
+
+  const relationalOperators = ctx.noIn[0]
+    ? relationalOperatorsNoIn
+    : relationalOperatorsWithIn;
+
   while (relationalOperators.includes(ctx.itr.peek.v)) {
     const relationalOperator = ctx.itr.read(relationalOperators);
     child = new ast.RelationalExpression(
@@ -710,25 +796,31 @@ function readAllocationExpression(ctx) {
   throw new NotImplementedError('readAllocationExpression');
 }
 
+// VariableStatement	::=	"var" VariableDeclarationList ( ";" )?
 function readVariableStatement(ctx) {
   dlog('readVariableStatement');
   ctx.itr.read('var');
-  const varDecList = readVariableDeclarationList(ctx);
+  const child = readVariableDeclarationList(ctx);
   skipSemi(ctx);
-  return new ast.VariableStatement(varDecList);
+  return new ast.VariableStatement(child);
 }
 
 // VariableDeclarationList	::=	VariableDeclaration ( "," VariableDeclaration )*
 function readVariableDeclarationList(ctx) {
   dlog('readVariableDeclarationList');
-  const variableDecList = [readVariableDeclaration(ctx)];
+  const variableDeclaration = readVariableDeclaration(ctx);
+  if (ctx.itr.peek.v !== ',') {
+    return variableDeclaration;
+  }
+  const variableDeclarations = [variableDeclaration];
   while (ctx.itr.peek.v === ',') {
     ctx.itr.read(',');
-    variableDecList.push(readVariableDeclaration(ctx));
+    variableDeclarations.push(readVariableDeclaration(ctx));
   }
-  return variableDecList;
+  return new ast.VariableDeclarationList(variableDeclarations);
 }
 
+// VariableDeclaration	::=	Identifier ( Initialiser )?
 function readVariableDeclaration(ctx) {
   dlog('readVariableDeclaration');
   const identifier = readIdentifier(ctx);

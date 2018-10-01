@@ -1,5 +1,3 @@
-const each = require('jest-each').default;
-
 const tokenize = require('./tokenizer');
 const { readProgram } = require('./parser');
 
@@ -80,18 +78,42 @@ test('deep literal', () => {
   expect(scope.y.data).toEqual(1);
 });
 
-describe('math operators', () => {
-  function testMathOp(op, expected) {
+describe('arithmatic operators', () => {
+  function testArithmaticOp(op, expected) {
     const src = `var x = 30 ${op} 10;`;
     const { scope } = run(src);
     expect(scope.x.data).toEqual(expected);
   }
 
-  test('math +', () => testMathOp('+', 40));
-  test('math -', () => testMathOp('-', 20));
-  test('math *', () => testMathOp('*', 300));
-  test('math /', () => testMathOp('/', 3));
-  test('math %', () => testMathOp('%', 0));
+  test('arithmatic +', () => testArithmaticOp('+', 40));
+  test('arithmatic -', () => testArithmaticOp('-', 20));
+  test('arithmatic *', () => testArithmaticOp('*', 300));
+  test('arithmatic /', () => testArithmaticOp('/', 3));
+  test('arithmatic %', () => testArithmaticOp('%', 0));
+});
+
+describe('relational operators', () => {
+  function testRelationalOp(left, op, right, expected) {
+    const src = `var x = ${left} ${op} ${right};`;
+    const { scope } = run(src);
+    expect(scope.x.data).toEqual(expected);
+  }
+
+  test('relational > less', () => testRelationalOp(10, '>', 20, false));
+  test('relational > equal', () => testRelationalOp(10, '>', 10, false));
+  test('relational > greater', () => testRelationalOp(20, '>', 10, true));
+  test('relational < less', () => testRelationalOp(10, '<', 20, true));
+  test('relational < equal', () => testRelationalOp(10, '<', 10, false));
+  test('relational < greater', () => testRelationalOp(20, '<', 10, false));
+  test('relational >= less', () => testRelationalOp(10, '>=', 20, false));
+  test('relational >= equal', () => testRelationalOp(10, '>=', 10, true));
+  test('relational >= greater', () => testRelationalOp(20, '>=', 10, true));
+  test('relational <= less', () => testRelationalOp(10, '<=', 20, true));
+  test('relational <= equal', () => testRelationalOp(10, '<=', 10, true));
+  test('relational <= greater', () => testRelationalOp(20, '<=', 10, false));
+
+  test('relational in', () => testRelationalOp('"a"', 'in', '{a:1}', true));
+  test('relational no in', () => testRelationalOp('"a"', 'in', '{}', false));
 });
 
 test('function', () => {
@@ -118,6 +140,7 @@ test('function expression', () => {
 
 test('function arg', () => {
   const src = `
+  var a = 4
   function f (a) {
     return 1 + a
   }
@@ -125,6 +148,7 @@ test('function arg', () => {
   `;
   const { scope } = run(src);
   expect(scope.x.data).toEqual(3);
+  expect(scope.a.data).toEqual(4);
 });
 
 test('function 2 args', () => {
@@ -438,49 +462,6 @@ test('nested while', () => {
   expect(scope.z.data).toEqual(100);
 });
 
-// test('break with label', () => {
-//   const src = `
-//    var x = false;
-//    var y = false;
-//    var z = false
-//    outer_block: {
-//     inner_block: {
-//       x = true
-//       break outer_block; // breaks out of both inner_block and outer_block
-//       y = true
-//     }
-//     z = true
-//   }
-//   `;
-
-//   const { scope } = run(src);
-//   expect(scope.x.data).toEqual(true);
-//   expect(scope.y.data).toEqual(false);
-//   expect(scope.z.data).toEqual(false);
-// });
-
-// test('while while named break', () => {
-//   const src = `
-//   var x = 0;
-//   var y = 0;
-//   var z = 0;
-
-//   while (x < 10) {
-//     x++;
-//     y = 0;
-//     while (y < 10) {
-//       y++;
-//       z++;
-//       if (x > 5) {
-//         break;
-//       }
-//     }
-//   }
-//   `;
-//   const { scope } = run(src);
-//   expect(scope.z.data).toEqual(100);
-// });
-
 test('while continue', () => {
   const src = `
   var x = 0;
@@ -496,4 +477,71 @@ test('while continue', () => {
   const { scope } = run(src);
   expect(scope.x.data).toEqual(10);
   expect(scope.y.data).toEqual(10);
+});
+
+test('for var i loop', () => {
+  const src = `
+  var x = 0;
+  for(var i=0; i<10; i++) {
+    x++;
+  }
+  `;
+  const { scope } = run(src);
+  expect(scope.i.data).toEqual(10);
+  expect(scope.x.data).toEqual(10);
+});
+
+test('for i loop', () => {
+  const src = `
+  var x = 0;
+  var i = 0;
+  for(i=0; i<10; i++) {
+    x++;
+  }
+  `;
+  const { scope } = run(src);
+  expect(scope.i.data).toEqual(10);
+  expect(scope.x.data).toEqual(10);
+});
+
+test('for var in loop', () => {
+  const src = `
+  var x = 0;
+  var arr = [1,2,3,4,5,6,7,8,9,10]
+  for(var i in arr) {
+    x++;
+  }
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(10);
+});
+
+test('for in loop', () => {
+  const src = `
+  var x = 0;
+  var arr = [1,2,3,4,5,6,7,8,9,10];
+  var i;
+  for(i in arr) {
+    x++;
+  }
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(10);
+});
+
+test('console.log', () => {
+  const src = `
+  console.log('hello')
+  `;
+  const { scope } = run(src);
+  expect(scope.__parentScope.__stdout).toEqual('hello\n');
+});
+
+test('array length', () => {
+  const src = `
+    var arr = [1,2,3];
+    var x = arr.length;
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(3);
 });

@@ -1,3 +1,4 @@
+const globalScope = require('./global');
 const NotImplementedError = require('./NotImplementedError');
 
 class StorageSlot {
@@ -8,20 +9,19 @@ class StorageSlot {
   }
 
   getChild(key) {
-    // console.log(
-    //   'GET key, this.data, this.data[key]:',
-    //   key,
-    //   this.data,
-    //   this.data[key]
-    // );
-    if (this.data[key]) {
-      const so = this.data[key];
-      so.ref = this;
-      so.key = key;
-      return so;
-    } else {
+    if (!Object.prototype.hasOwnProperty.call(this.data, key)) {
+      // Should check hirachy here.
       return new StorageSlot(undefined);
     }
+
+    if (key === 'length' && Array.isArray(this.data)) {
+      return new StorageSlot(this.data.length);
+    }
+
+    const so = this.data[key];
+    so.ref = this;
+    so.key = key;
+    return so;
   }
 
   set(value) {
@@ -60,7 +60,7 @@ class StorageSlot {
 class AstItem {
   constructor(children) {
     if (!Array.isArray(children)) {
-      throw new Error('children must be an array');
+      throw new Error(this + 'children must be an array. Got:' + children);
     }
     children.forEach(x => {
       if (x === null || x === undefined) {
@@ -122,8 +122,13 @@ class AstItem {
     return str;
   }
 
+  mustBeOrNull(name, t) {
+    if (this[name] === null) return;
+    this.mustBe(name, t);
+  }
+
   mustBe(name, t) {
-    if (!this[name] instanceof t) {
+    if (!(this[name] instanceof t)) {
       throw new Error(
         `${this} is expecting property ${name} to be ${t} but got ${this[name]}`
       );
@@ -161,8 +166,8 @@ class BinaryExpressionOperatorsAstItem extends BinaryExpressionAstItem {
   }
 
   run(scope) {
-    const left = this.left.run(scope);
-    const right = this.right.run(scope);
+    const left = this.left.run(scope).valueOf();
+    const right = this.right.run(scope).valueOf();
     const result = this.validOperators[this.operator](left, right);
     return new StorageSlot(result);
   }
@@ -389,12 +394,13 @@ class CallExpression extends AstItem {
     const newScope = { __parentScope: scope };
 
     const argValues = this.args.run(scope);
+    newScope['arguments'] = new StorageSlot(argValues);
 
     if (func.params.children) {
       for (let i = 0; i < func.params.children.length; i++) {
         const identifier = func.params.children[i];
         const value = argValues[i];
-        scope[identifier.name] = value;
+        newScope[identifier.name] = value;
       }
     }
 
@@ -502,7 +508,6 @@ class UnaryExpression extends AstItem {
 
     const newVal = this.unaryOperatorF(so);
     if (MutatingUnaryOperators.includes(this.unaryOperator)) {
-      console.log('mutating ' + this.unaryOperator);
       so.set(newVal);
       return so;
     } else {
@@ -549,11 +554,25 @@ const RelationalOperator = {
   '<=': (left, right) => left <= right,
   '>=': (left, right) => left >= right,
   instanceof: (left, right) => left instanceof right,
-  in: (left, right) => left in right
+  in: (left, right) => {
+    if (typeof right !== 'object') {
+      throw new Error(
+        `TypeError: Cannot use 'in' operator to search for ${JSON.stringify(
+          left
+        )} in ${JSON.stringify(right)}`
+      );
+    }
+    const rightObject = right.valueOf();
+    return left in rightObject;
+  }
 };
 class RelationalExpression extends BinaryExpressionOperatorsAstItem {
   constructor(left, right, operator) {
     super(left, right, operator, RelationalOperator);
+  }
+
+  run(scope) {
+    return super.run(scope);
   }
 }
 
@@ -762,7 +781,57 @@ class IterationStatement extends AstItem {
   }
 
   run(scope) {
-    const { initialExpression, continueExpression } = this.expressions;
+    const {
+      variableDeclaration,
+      initialExpression,
+      continueExpression,
+      finalExpression,
+      valueExpression,
+      leftHandSideExpression,
+      initializationExpression
+    } = this.expressions;
+
+    if (valueExpression) {
+      if (!variableDeclaration && !leftHandSideExpression) {
+        if (!variableDeclaration instanceof VariableDeclaration) {
+          throw new Error('in expects VariableDeclaration');
+        }
+        if (!leftHandSideExpression instanceof LeftHandSideExpression) {
+          throw new Error('in expects VariableDeclaration');
+        }
+      }
+
+      let storageSlot;
+      if (variableDeclaration) {
+        const varName = variableDeclaration.identifier.name;
+        variableDeclaration.run(scope);
+        storageSlot = scope[varName];
+      } else if (leftHandSideExpression) {
+        storageSlot = leftHandSideExpression.run(scope);
+      }
+
+      const value = valueExpression.run(scope);
+      const keys = Object.keys(value.data);
+
+      for (var i = 0; i < keys.length; i++) {
+        storageSlot.set(keys[i]);
+        this.statement.run(scope);
+
+        if (scope.__break) {
+          delete scope.__break;
+          break;
+        }
+        if (scope.__continue) {
+          delete scope.__continue;
+        }
+      }
+
+      return;
+    }
+
+    if (variableDeclaration) variableDeclaration.run(scope);
+    if (initializationExpression) initializationExpression.run(scope);
+
     const initialExpressionValue = (initialExpression || continueExpression)
       .run(scope)
       .valueOf();
@@ -778,6 +847,9 @@ class IterationStatement extends AstItem {
       }
       if (scope.__continue) {
         delete scope.__continue;
+      }
+      if (finalExpression) {
+        finalExpression.run(scope);
       }
       loop = continueExpression.run(scope).valueOf();
     } while (loop);
@@ -884,13 +956,14 @@ class Finally extends AstItem {
 
 class Function extends AstItem {
   constructor(identifier, params, body) {
-    super([body]);
+    super(body ? [body] : []);
 
     this.identifier = identifier;
     this.params = params;
     this.body = body;
 
-    this.mustBe('identifier', Identifier);
+    this.mustBeOrNull('identifier', Identifier);
+    this.mustBe('params', FormalParameterList);
   }
 
   valueOf() {
@@ -909,10 +982,7 @@ class Function extends AstItem {
   }
 
   runBody(scope) {
-    this.children.every(child => {
-      child.run(scope);
-      return scope.__returnValue === undefined;
-    });
+    this.body.run(scope);
     return scope.__returnValue;
   }
 }
@@ -926,6 +996,25 @@ class FunctionDeclaration extends Function {
 class FunctionExpression extends Function {
   constructor(identifier, params, body) {
     super(identifier, params, body);
+  }
+}
+
+class NativeCode extends Function {
+  constructor(code) {
+    super(null, new FormalParameterList([]));
+    this.code = code;
+  }
+
+  toString(pad = '') {
+    return `${pad}[NativeCode]`;
+  }
+
+  toJSON() {
+    return `[NativeCode]`;
+  }
+
+  runBody(scope) {
+    this.code(scope);
   }
 }
 
@@ -946,11 +1035,24 @@ class FunctionBody extends AstItem {
   constructor(children) {
     super(children);
   }
+
+  run(scope) {
+    this.children.every(child => {
+      child.run(scope);
+      return !'__returnValue' in scope;
+    });
+    return scope.__returnValue;
+  }
 }
 
 class Program extends AstItem {
   constructor(children) {
     super(children);
+  }
+
+  run(scope) {
+    scope.__parentScope = globalScopeInstance;
+    super.run(scope);
   }
 }
 
@@ -979,14 +1081,21 @@ class Name extends AstItem {
 }
 
 class VariableStatement extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(child) {
+    super([child]);
   }
 }
 
 class VariableDeclarationList extends AstItem {
-  constructor(children) {
-    super(children);
+  constructor(variableDeclarations) {
+    super(variableDeclarations);
+    this.variableDeclarations = variableDeclarations;
+  }
+
+  run(scope) {
+    for (var variableDeclaration of this.variableDeclarations) {
+      variableDeclaration.run(scope);
+    }
   }
 }
 
@@ -1003,7 +1112,11 @@ class VariableDeclaration extends AstItem {
 
   run(scope) {
     const id = this.identifier.name;
-    scope[id] = this.initialiser.run(scope);
+    if (this.initialiser) {
+      scope[id] = this.initialiser.run(scope);
+    } else {
+      scope[id] = new StorageSlot(undefined);
+    }
   }
 
   toString(pad = '') {
@@ -1084,6 +1197,8 @@ module.exports = {
   TryStatement,
   Catch,
   Finally,
+  Function,
+  NativeCode,
   FunctionDeclaration,
   FunctionExpression,
   FormalParameterList,
@@ -1094,3 +1209,6 @@ module.exports = {
   ImportStatement,
   Name
 };
+
+const globalScopeInstance = globalScope(NativeCode, StorageSlot);
+console.log('globalScopeInstance:', globalScopeInstance);
