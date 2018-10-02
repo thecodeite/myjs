@@ -1,6 +1,8 @@
 const util = require('util');
+const { NativeCode } = require('./ast/Function');
+const StorageSlot = require('./ast/helpers/StorageSlot');
 
-module.exports = (NativeCode, StorageSlot) => {
+module.exports = () => {
   const global = {
     console: wrap({
       log: scope => {

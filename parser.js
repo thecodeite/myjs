@@ -1,4 +1,4 @@
-const ast = require('./ast');
+const ast = require('./ast/ast');
 const NotImplementedError = require('./NotImplementedError');
 
 const debug = () => process.env.DEBUG === 'true';
@@ -378,7 +378,7 @@ function readIterationStatement(ctx) {
     skipSemi(ctx);
     return new ast.IterationStatement(
       'do-while',
-      { initialExpression: ast.True, continueExpression },
+      { initialExpression: ast.Literal.True, continueExpression },
       statement
     );
   }
@@ -875,6 +875,7 @@ function readPropertyNameAndValueList(ctx) {
 
   return new ast.PropertyNameAndValueList(...elements);
 }
+
 // PropertyNameAndValue	::=	PropertyName ":" AssignmentExpression
 function readPropertyNameAndValue(ctx) {
   dlog('readPropertyNameAndValue');
