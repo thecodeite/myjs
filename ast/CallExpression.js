@@ -1,4 +1,4 @@
-const Scope = require('./helpers/Scope');
+const { Scope } = require('./helpers/Scope');
 const StorageSlot = require('./helpers/StorageSlot');
 
 const AstItem = require('./AstItem');

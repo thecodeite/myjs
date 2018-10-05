@@ -1,7 +1,7 @@
 const globalScope = require('../global');
 const NotImplementedError = require('../NotImplementedError');
 
-const Scope = require('./helpers/Scope');
+const { Scope } = require('./helpers/Scope');
 const StorageSlot = require('./helpers/StorageSlot');
 
 const AstItem = require('./AstItem');
@@ -77,6 +77,7 @@ const {
   CaseBlock,
   Clause,
   CaseClause,
+  CaseClauses,
   DefaultClause
 } = require('./switch');
 const LabelledStatement = require('./LabelledStatement');
@@ -94,13 +95,14 @@ const {
   FormalParameterList,
   FunctionBody
 } = require('./Function');
-const Program = require('./Program');
-const { SourceElement, SourceElements } = require('./SourceElements');
+// const Program = require('./Program');
+// const { SourceElement, SourceElements } = require('./SourceElements');
 const ImportStatement = require('./ImportStatement');
 const Name = require('./Name');
 const VariableStatement = require('./VariableStatement');
 const VariableDeclarationList = require('./VariableDeclarationList');
 const VariableDeclaration = require('./VariableDeclaration');
+const PrimaryExpression = require('./PrimaryExpression');
 
 module.exports = {
   Literal,
@@ -166,6 +168,7 @@ module.exports = {
   CaseBlock,
   Clause,
   CaseClause,
+  CaseClauses,
   DefaultClause,
   LabelledStatement,
   ThrowStatement,
@@ -178,9 +181,10 @@ module.exports = {
   FunctionExpression,
   FormalParameterList,
   FunctionBody,
-  Program,
-  SourceElements,
-  SourceElement,
+  // Program,
+  // SourceElements,
+  // SourceElement,
   ImportStatement,
-  Name
+  Name,
+  PrimaryExpression
 };

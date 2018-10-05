@@ -1,4 +1,4 @@
-const Scope = require('./helpers/Scope');
+const { Scope } = require('./helpers/Scope');
 const AstItem = require('./AstItem');
 
 class ThrowStatement extends AstItem {
@@ -10,6 +10,15 @@ class ThrowStatement extends AstItem {
   run(scope) {
     const error = this.expression.run(scope);
     scope.__error = error;
+  }
+
+  // ThrowStatement	::=	"throw" Expression ( ";" )?
+  static read(ctx) {
+    ctx.dlog('readTryStatement');
+    ctx.itr.read('throw');
+    const expression = require('../old/parser').readExpression(ctx);
+    ctx.skipSemi(ctx);
+    return new ThrowStatement(expression);
   }
 }
 
@@ -35,6 +44,23 @@ class TryStatement extends AstItem {
       this.finallyBlock.run(newScope);
     }
   }
+
+  // TryStatement	::=	"try" Block ( ( Finally | Catch ( Finally )? ) )
+  static read(ctx) {
+    ctx.dlog('readTryStatement');
+    ctx.itr.read('try');
+    const block = require('../old/parser').readBlock(ctx);
+    let catchBlock, finallyBlock;
+    if (ctx.itr.peek.v === 'finally') {
+      finallyBlock = require('../old/parser').readFinally(ctx);
+    } else {
+      catchBlock = require('../old/parser').readCatch(ctx);
+      if (ctx.itr.peek.v === 'finally') {
+        finallyBlock = require('../old/parser').readFinally(ctx);
+      }
+    }
+    return new TryStatement(block, catchBlock, finallyBlock);
+  }
 }
 
 class Catch extends AstItem {
@@ -49,6 +75,18 @@ class Catch extends AstItem {
     delete scope.__error;
     this.block.run(scope);
   }
+
+  // Catch	::=	"catch" "(" Identifier ")" Block
+  static read(ctx) {
+    ctx.dlog('readCatch');
+
+    ctx.itr.read('catch');
+    ctx.itr.read('(');
+    const identifier = require('../old/parser').readIdentifier(ctx);
+    ctx.itr.read(')');
+    const block = require('../old/parser').readBlock(ctx);
+    return new Catch(identifier, block);
+  }
 }
 
 class Finally extends AstItem {
@@ -62,6 +100,15 @@ class Finally extends AstItem {
       delete scope.__error;
     }
     this.block.run(scope);
+  }
+
+  // Finally	::=	"finally" Block
+  static read(ctx) {
+    ctx.dlog('readFinally');
+
+    ctx.itr.read('finally');
+    const block = require('../old/parser').readBlock(ctx);
+    return new Finally(block);
   }
 }
 

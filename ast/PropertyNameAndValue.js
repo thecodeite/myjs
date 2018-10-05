@@ -17,4 +17,13 @@ module.exports = class PropertyNameAndValue extends AstItem {
       value: this.value.run(scope)
     };
   }
+
+  // PropertyNameAndValue	::=	PropertyName ":" AssignmentExpression
+  static read(ctx) {
+    ctx.dlog('readPropertyNameAndValue');
+    const name = require('../old/parser').readPropertyName(ctx);
+    ctx.itr.read(':');
+    const value = require('../old/parser').readAssignmentExpression(ctx);
+    return new PropertyNameAndValue(name, value);
+  }
 };

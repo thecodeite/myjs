@@ -20,4 +20,17 @@ module.exports = class ObjectLiteral extends AstItem {
 
     return new StorageSlot(value);
   }
+
+  // ObjectLiteral	::=	"{" ( PropertyNameAndValueList )? "}"
+  static read(ctx) {
+    ctx.dlog('readObjectLiteral');
+    ctx.itr.read('{');
+    let values = null;
+    if (ctx.itr.peek.v !== '}') {
+      values = require('../old/parser').readPropertyNameAndValueList(ctx);
+    }
+    ctx.itr.read('}');
+
+    return new ObjectLiteral(values);
+  }
 };

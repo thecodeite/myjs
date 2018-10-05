@@ -14,6 +14,7 @@ const UnaryOperator = {
   '~': old => ~old.valueOf(),
   '!': old => !old.valueOf()
 };
+const unaryOperators = Object.keys(UnaryOperator);
 
 const MutatingUnaryOperators = ['++', '--'];
 class UnaryExpression extends AstItem {
@@ -39,6 +40,18 @@ class UnaryExpression extends AstItem {
     } else {
       return new StorageSlot(newVal);
     }
+  }
+
+  // UnaryExpression	::=	( PostfixExpression | ( UnaryOperator UnaryExpression )+ )
+  static read(ctx) {
+    ctx.dlog('readUnaryExpression');
+
+    if (unaryOperators.includes(ctx.itr.peek.v)) {
+      const unaryOperator = ctx.itr.read(unaryOperators);
+      const unaryExpression = require('../old/parser').readUnaryExpression(ctx);
+      return new UnaryExpression(unaryOperator, unaryExpression);
+    }
+    return require('../old/parser').readPostfixExpression(ctx);
   }
 }
 

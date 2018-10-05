@@ -43,4 +43,21 @@ module.exports = class MemberExpressionPart extends AstItem {
     const name = this.f(scope);
     return target.getChild(name);
   }
+
+  // MemberExpressionPart	::=	( "[" Expression "]" ) |	( "." Identifier )
+  static read(ctx, target) {
+    ctx.dlog('readMemberExpressionPart');
+    if (ctx.itr.peek.v === '[') {
+      ctx.itr.read('[');
+      const expression = require('../old/parser').readExpression(ctx);
+      ctx.itr.read(']');
+      return new MemberExpressionPart('[', expression, target);
+    } else if (ctx.itr.peek.v === '.') {
+      ctx.itr.read('.');
+      const identifier = require('../old/parser').readIdentifier(ctx);
+      return new MemberExpressionPart('.', identifier, target);
+    } else {
+      throw new Error();
+    }
+  }
 };

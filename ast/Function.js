@@ -45,6 +45,16 @@ class FunctionDeclaration extends Function {
   toString(pad = '') {
     return `${pad}[FunctionDeclaration:'${this.identifier.name}']`;
   }
+
+  // FunctionDeclaration	::=	 "function" Identifier ( "(" ( FormalParameterList )? ")" ) FunctionBody
+  static read(ctx) {
+    const {
+      identifier,
+      params,
+      body
+    } = readFunctionDeclarationOrFunctionExpression(ctx, true);
+    return new FunctionDeclaration(identifier, params, body);
+  }
 }
 
 class FunctionExpression extends Function {
@@ -54,6 +64,16 @@ class FunctionExpression extends Function {
 
   toString(pad = '') {
     return `${pad}[FunctionExpression:'${this.identifier.name}']`;
+  }
+
+  // FunctionExpression	::=	"function" ( Identifier )? ( "(" ( FormalParameterList )? ")" ) FunctionBody
+  static read(ctx) {
+    const {
+      identifier,
+      params,
+      body
+    } = readFunctionDeclarationOrFunctionExpression(ctx, false);
+    return new FunctionExpression(identifier, params, body);
   }
 }
 
@@ -87,6 +107,18 @@ class FormalParameterList extends AstItem {
       throw new Error('FormalParameterList expects array of identifiers');
     }
   }
+
+  // FormalParameterList ::= Identifier ( "," Identifier )*
+  static read(ctx) {
+    ctx.dlog('readFormalParameterList');
+    const identifiers = [Identifier.read(ctx)];
+    while (ctx.itr.peek.v === ',') {
+      ctx.itr.read(',');
+      identifiers.push(Identifier.read(ctx));
+    }
+
+    return new FormalParameterList(identifiers);
+  }
 }
 
 class FunctionBody extends AstItem {
@@ -102,6 +134,22 @@ class FunctionBody extends AstItem {
     });
     return scope.__returnValue;
   }
+
+  static read(ctx) {
+    // "{" ( SourceElements )? "}"
+    ctx.dlog('readFunctionBody');
+    ctx.itr.read('{');
+    let sourceElements = new (require('../ast/SourceElements')).SourceElements(
+      []
+    );
+    if (ctx.itr.peek.v !== '}') {
+      sourceElements = require('../ast/SourceElements').SourceElements.read(
+        ctx
+      );
+    }
+    ctx.itr.read('}');
+    return new FunctionBody(sourceElements);
+  }
 }
 
 module.exports = {
@@ -112,3 +160,25 @@ module.exports = {
   FormalParameterList,
   FunctionBody
 };
+
+function readFunctionDeclarationOrFunctionExpression(ctx, identifierRequired) {
+  ctx.dlog('readFunctionDeclaration');
+  ctx.itr.read('function');
+  let identifier = null;
+  if (ctx.itr.peek.v === '(') {
+    if (identifierRequired) {
+      throw new Error('Identifier expected');
+    }
+  } else {
+    identifier = Identifier.read(ctx);
+  }
+  ctx.itr.read('(');
+  let params = new FormalParameterList([]);
+  if (ctx.itr.peek.v !== ')') {
+    params = FormalParameterList.read(ctx);
+  }
+  ctx.itr.read(')');
+  const body = FunctionBody.read(ctx);
+
+  return { identifier, params, body };
+}

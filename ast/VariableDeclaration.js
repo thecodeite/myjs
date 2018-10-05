@@ -24,4 +24,15 @@ module.exports = class VariableDeclaration extends AstItem {
   toString(pad = '') {
     return `${pad}[VariableDeclaration'${this.identifier.name}']`;
   }
+
+  // VariableDeclaration	::=	Identifier ( Initialiser )?
+  static read(ctx) {
+    ctx.dlog('readVariableDeclaration');
+    const identifier = require('../old/parser').readIdentifier(ctx);
+    const initialiser =
+      ctx.itr.peek.v === '='
+        ? require('../old/parser').readInitialiser(ctx)
+        : null;
+    return new VariableDeclaration(identifier, initialiser);
+  }
 };

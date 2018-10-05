@@ -26,4 +26,15 @@ module.exports = class Identifier extends AstItem {
 
     throw new Error(id + ' is not defined');
   }
+
+  // Identifier	::=	<IDENTIFIER_NAME>
+  static read(ctx) {
+    ctx.dlog('readIdentifier');
+    const { value } = ctx.itr.next();
+    if (value.t !== 'identifier')
+      throw new Error(
+        'readIdentifier Expected identifier, got:' + JSON.stringify(value)
+      );
+    return new Identifier(value.v);
+  }
 };

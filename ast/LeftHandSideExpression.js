@@ -23,4 +23,17 @@ module.exports = class LeftHandSideExpression extends AstItem {
   run(scope) {
     return this.memberExpression.run(scope);
   }
+
+  // LeftHandSideExpression ::= CallExpression | MemberExpression
+  static read(ctx) {
+    ctx.dlog('readLeftHandSideExpression');
+    const memExp = require('../old/parser').readMemberExpression(ctx);
+
+    if (ctx.itr.peek.v === '(') {
+      const args = require('../old/parser').readArguments(ctx);
+      return new LeftHandSideExpression(new CallExpression(memExp, args));
+    }
+    // return memExp;
+    return new LeftHandSideExpression(memExp);
+  }
 };

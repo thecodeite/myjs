@@ -8,4 +8,19 @@ module.exports = class BreakStatement extends AstItem {
   run(scope) {
     scope.__break = true;
   }
+
+  // BreakStatement	::=	"break" ( Identifier )? ( ";" )?
+  static read(ctx) {
+    ctx.dlog('readBreak');
+    ctx.itr.read('break');
+
+    let identifier = null;
+    if (ctx.itr.peek.t === 'identifier') {
+      throw new NotImplementedError('readBreak named break');
+      identifier = Identifier.read(ctx);
+    }
+
+    ctx.skipSemi(ctx);
+    return new BreakStatement(identifier);
+  }
 };

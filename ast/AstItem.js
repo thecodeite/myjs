@@ -29,6 +29,10 @@ module.exports = class AstItem {
   }
 
   run(scope) {
+    throw new Error(this + ' Using AstItem::run');
+  }
+
+  runChildren(scope) {
     let res = undefined;
     for (let child of this.children) {
       res = child.run(scope);

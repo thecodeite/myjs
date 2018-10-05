@@ -1,16 +1,19 @@
 const tokenize = require('./tokenizer');
-const { readProgram } = require('./parser');
+const Program = require('./ast/Program');
+const ParsingContext = require('./ParsingContext');
+const { RootScope } = require('./ast/helpers/Scope');
 
 process.env.DEBUG = 'false';
 
 function run(src) {
-  const context = {
-    scope: {},
-    itr: tokenize(src)
+  const context = new ParsingContext(tokenize(src));
+  const program = Program.read(context);
+  const scope = new RootScope({ noStdout: true });
+  program.run(scope);
+  return {
+    context,
+    scope
   };
-  const program = readProgram(context);
-  program.run(context.scope);
-  return context;
 }
 
 test('variable assignment', () => {
@@ -637,7 +640,7 @@ test('try', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual('good\n');
+  expect(scope.global.__stdout).toEqual('good\n');
 });
 
 test('try throw catch', () => {
@@ -652,7 +655,7 @@ test('try throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual('good\nerror\ncaught\n');
+  expect(scope.global.__stdout).toEqual('good\nerror\ncaught\n');
 });
 
 test('try throw finally', () => {
@@ -666,7 +669,7 @@ test('try throw finally', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual('good\nfinally\n');
+  expect(scope.global.__stdout).toEqual('good\nfinally\n');
 });
 
 test('try loop throw catch', () => {
@@ -685,9 +688,7 @@ test('try loop throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual(
-    'good\nloop-start\nerror\ncaught\n'
-  );
+  expect(scope.global.__stdout).toEqual('good\nloop-start\nerror\ncaught\n');
 });
 
 test('try func throw catch', () => {
@@ -708,7 +709,5 @@ test('try func throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual(
-    'good\nfunc-start\nerror\ncaught\n'
-  );
+  expect(scope.global.__stdout).toEqual('good\nfunc-start\nerror\ncaught\n');
 });

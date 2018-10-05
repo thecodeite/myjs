@@ -20,4 +20,17 @@ module.exports = class StatementList extends AstItem {
       }
     }
   }
+
+  // StatementList	::=	( Statement )+
+  static read(ctx, terminators) {
+    ctx.dlog('readStatementList');
+    const statements = [];
+
+    while (!terminators.includes(ctx.itr.peek.v)) {
+      statements.push(require('../old/parser').readStatement(ctx));
+      ctx.skipEmptyLines(ctx);
+    }
+
+    return new StatementList(statements);
+  }
 };

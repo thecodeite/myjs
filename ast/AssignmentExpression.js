@@ -15,6 +15,7 @@ const AssignmentOperator = {
   '^=': (left, right) => left ^ right,
   '|=': (left, right) => left | right
 };
+const assignmentOperators = Object.keys(AssignmentOperator);
 
 class AssignmentExpression extends AstItem {
   constructor(left, right, operator) {
@@ -45,6 +46,19 @@ class AssignmentExpression extends AstItem {
 
   toString(pad = '') {
     return `${pad}[AssignmentExpression'${this.identifier}']`;
+  }
+
+  // AssignmentExpression	::=	( LeftHandSideExpression AssignmentOperator AssignmentExpression | ConditionalExpression )
+  static read(ctx) {
+    ctx.dlog('readAssignmentExpression');
+    const left = require('../old/parser').readConditionalExpression(ctx);
+
+    if (assignmentOperators.includes(ctx.itr.peek.v)) {
+      const operator = ctx.itr.read(assignmentOperators);
+      const right = require('../old/parser').readAssignmentExpression(ctx);
+      return new AssignmentExpression(left, right, operator);
+    }
+    return left;
   }
 }
 

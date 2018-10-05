@@ -2,12 +2,14 @@ const util = require('util');
 const { NativeCode } = require('./ast/Function');
 const StorageSlot = require('./ast/helpers/StorageSlot');
 
-module.exports = () => {
+module.exports = options => {
   const global = {
     console: wrap({
       log: scope => {
         const result = util.format(...unWrap(scope.arguments));
-        process.stdout.write(`console.log:>${result}\n`);
+        if (!options.noStdout) {
+          process.stdout.write(`console.log:>${result}\n`);
+        }
         global.__stdout += `${result}\n`;
       }
     }),
