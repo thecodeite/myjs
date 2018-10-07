@@ -1,5 +1,4 @@
 const AstItem = require('./AstItem.js');
-const StatementList = require('./StatementList.js');
 
 module.exports = class Block extends AstItem {
   constructor(statementList) {
@@ -16,11 +15,11 @@ module.exports = class Block extends AstItem {
   static read(ctx) {
     ctx.dlog('readBlock');
     ctx.itr.read('{');
-    const statementList = require('../old/parser').readStatementList(ctx, [
-      '}'
-    ]);
+    const statementList = StatementList.read(ctx, ['}']);
     ctx.itr.read('}');
 
     return new Block(statementList);
   }
 };
+
+const StatementList = require('./StatementList.js');

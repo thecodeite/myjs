@@ -1,4 +1,5 @@
 const BinaryExpressionAstItem = require('./BinaryExpressionAstItem');
+const { BitwiseORExpression } = require('./bitwise');
 
 const LogicalANDOperator = '&&';
 class LogicalANDExpression extends BinaryExpressionAstItem {
@@ -13,13 +14,10 @@ class LogicalANDExpression extends BinaryExpressionAstItem {
   // LogicalANDExpression	::=	BitwiseORExpression ( LogicalANDOperator BitwiseORExpression )*
   static read(ctx) {
     ctx.dlog('readLogicalANDExpression');
-    let child = require('../old/parser').readBitwiseORExpression(ctx);
+    let child = BitwiseORExpression.read(ctx);
     while (ctx.itr.peek.v === LogicalANDOperator) {
       ctx.itr.read(LogicalANDOperator);
-      child = new LogicalANDExpression(
-        child,
-        require('../old/parser').readBitwiseORExpression(ctx)
-      );
+      child = new LogicalANDExpression(child, BitwiseORExpression.read(ctx));
     }
     return child;
   }

@@ -25,18 +25,24 @@ class PrimaryExpression {
     ctx.dlog('readPrimaryExpression');
     const peek = ctx.itr.peek.v;
     if (peek === 'this') throw new NotImplementedError('this');
-    if (peek === '{') return require('../old/parser').readObjectLiteral(ctx);
-    if (peek === '[') return require('../old/parser').readArrayLiteral(ctx);
+    if (peek === '{') return ObjectLiteral.read(ctx);
+    if (peek === '[') return ArrayLiteral.read(ctx);
     if (peek === '(') {
       ctx.itr.read('(');
-      const exp = require('../old/parser').readExpression(ctx);
+      const exp = Expression.read(ctx);
       ctx.itr.read(')');
       return exp;
     }
-    if (isLiteral(ctx)) return require('../old/parser').readLiteral(ctx);
+    if (isLiteral(ctx)) return Literal.read(ctx);
 
-    return require('../old/parser').readIdentifier(ctx);
+    return Identifier.read(ctx);
   }
 }
 
 module.exports = PrimaryExpression;
+
+const Identifier = require('./Identifier');
+const Literal = require('./Literal');
+const ObjectLiteral = require('./ObjectLiteral');
+const ArrayLiteral = require('./ArrayLiteral');
+const Expression = require('./Expression');

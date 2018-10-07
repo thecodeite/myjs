@@ -1,8 +1,5 @@
 const AstItem = require('./AstItem.js');
 
-const { readStatement } = require('../old/parser');
-const { FunctionDeclaration } = require('./Function');
-
 class SourceElements extends AstItem {
   constructor(children) {
     super(...children);
@@ -33,7 +30,7 @@ class SourceElement {
     if (ctx.itr.peek.v === 'function') {
       return FunctionDeclaration.read(ctx);
     } else {
-      return readStatement(ctx);
+      return Statement.read(ctx);
     }
   }
 }
@@ -42,3 +39,6 @@ module.exports = {
   SourceElement,
   SourceElements
 };
+
+const Statement = require('./Statement');
+const { FunctionDeclaration } = require('./Function');

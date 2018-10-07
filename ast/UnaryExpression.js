@@ -1,5 +1,6 @@
 const StorageSlot = require('./helpers/StorageSlot');
 const AstItem = require('./AstItem');
+const PostfixExpression = require('./PostfixExpression');
 
 const UnaryOperator = {
   delete: () => {
@@ -48,10 +49,10 @@ class UnaryExpression extends AstItem {
 
     if (unaryOperators.includes(ctx.itr.peek.v)) {
       const unaryOperator = ctx.itr.read(unaryOperators);
-      const unaryExpression = require('../old/parser').readUnaryExpression(ctx);
+      const unaryExpression = UnaryExpression.read(ctx);
       return new UnaryExpression(unaryOperator, unaryExpression);
     }
-    return require('../old/parser').readPostfixExpression(ctx);
+    return PostfixExpression.read(ctx);
   }
 }
 

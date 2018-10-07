@@ -15,19 +15,17 @@ module.exports = class VariableDeclarationList extends AstItem {
   // VariableDeclarationList	::=	VariableDeclaration ( "," VariableDeclaration )*
   static read(ctx) {
     ctx.dlog('readVariableDeclarationList');
-    const variableDeclaration = require('../old/parser').readVariableDeclaration(
-      ctx
-    );
+    const variableDeclaration = VariableDeclaration.read(ctx);
     if (ctx.itr.peek.v !== ',') {
       return variableDeclaration;
     }
     const variableDeclarations = [variableDeclaration];
     while (ctx.itr.peek.v === ',') {
       ctx.itr.read(',');
-      variableDeclarations.push(
-        require('../old/parser').readVariableDeclaration(ctx)
-      );
+      variableDeclarations.push(VariableDeclaration.read(ctx));
     }
     return new VariableDeclarationList(variableDeclarations);
   }
 };
+
+const VariableDeclaration = require('./VariableDeclaration');

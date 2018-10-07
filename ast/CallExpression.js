@@ -2,7 +2,6 @@ const { Scope } = require('./helpers/Scope');
 const StorageSlot = require('./helpers/StorageSlot');
 
 const AstItem = require('./AstItem');
-const Arguments = require('./Arguments');
 
 module.exports = class CallExpression extends AstItem {
   constructor(memExp, args) {
@@ -50,3 +49,5 @@ module.exports = class CallExpression extends AstItem {
     return funcResult;
   }
 };
+
+const Arguments = require('./Arguments');

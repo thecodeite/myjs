@@ -1,7 +1,4 @@
 const AstItem = require('./AstItem.js');
-const VariableDeclaration = require('./VariableDeclaration.js');
-const LeftHandSideExpression = require('./LeftHandSideExpression.js');
-const Literal = require('./Literal.js');
 
 module.exports = class IterationStatement extends AstItem {
   constructor(name, expressions, statement) {
@@ -88,7 +85,7 @@ module.exports = class IterationStatement extends AstItem {
 
   /*
   IterationStatement	::=
-    ( "do" Statement "while" "(" Expression ")" ( ";" )? )
+  ( "do" Statement "while" "(" Expression ")" ( ";" )? )
   |	( "while" "(" Expression ")" Statement )
   |	( "for" "(" ( ExpressionNoIn )? ";" ( Expression )? ";" ( Expression )? ")" Statement )
   |	( "for" "(" "var" VariableDeclarationList ";" ( Expression )? ";" ( Expression )? ")" Statement )
@@ -100,9 +97,9 @@ module.exports = class IterationStatement extends AstItem {
     if (ctx.itr.peek.v === 'while') {
       ctx.itr.read('while');
       ctx.itr.read('(');
-      const continueExpression = require('../old/parser').readExpression(ctx);
+      const continueExpression = Expression.read(ctx);
       ctx.itr.read(')');
-      const statement = require('../old/parser').readStatement(ctx);
+      const statement = Statement.read(ctx);
       ctx.skipSemi(ctx);
       return new IterationStatement('while', { continueExpression }, statement);
     }
@@ -110,10 +107,10 @@ module.exports = class IterationStatement extends AstItem {
     if (ctx.itr.peek.v === 'do') {
       ctx.itr.read('do');
 
-      const statement = require('../old/parser').readStatement(ctx);
+      const statement = Statement.read(ctx);
       ctx.itr.read('while');
       ctx.itr.read('(');
-      const continueExpression = require('../old/parser').readExpression(ctx);
+      const continueExpression = Expression.read(ctx);
       ctx.itr.read(')');
       ctx.skipSemi(ctx);
       return new IterationStatement(
@@ -129,18 +126,14 @@ module.exports = class IterationStatement extends AstItem {
 
       if (ctx.itr.peek.v === 'var') {
         ctx.itr.read('var');
-        const variableDeclaration = require('../old/parser').readVariableDeclarationList(
-          ctx
-        );
+        const variableDeclaration = VariableDeclarationList.read(ctx);
         if (ctx.itr.peek.v === ';') {
           ctx.itr.read(';');
-          const continueExpression = require('../old/parser').readExpression(
-            ctx
-          );
+          const continueExpression = Expression.read(ctx);
           ctx.itr.read(';');
-          const finalExpression = require('../old/parser').readExpression(ctx);
+          const finalExpression = Expression.read(ctx);
           ctx.itr.read(')');
-          const statement = require('../old/parser').readStatement(ctx);
+          const statement = Statement.read(ctx);
 
           return new IterationStatement(
             'for-var',
@@ -149,9 +142,9 @@ module.exports = class IterationStatement extends AstItem {
           );
         } else if (ctx.itr.peek.v === 'in') {
           ctx.itr.read('in');
-          const valueExpression = require('../old/parser').readExpression(ctx);
+          const valueExpression = Expression.read(ctx);
           ctx.itr.read(')');
-          const statement = require('../old/parser').readStatement(ctx);
+          const statement = Statement.read(ctx);
 
           return new IterationStatement(
             'for-var-in',
@@ -163,17 +156,15 @@ module.exports = class IterationStatement extends AstItem {
         }
       } else {
         //const leftHandSideExpression = readLeftHandSideExpression(ctx);
-        const expression = require('../old/parser').readExpressionNoIn(ctx);
+        const expression = Expression.readNoIn(ctx);
         if (ctx.itr.peek.v === ';') {
           const initializationExpression = expression;
           ctx.itr.read(';');
-          const continueExpression = require('../old/parser').readExpression(
-            ctx
-          );
+          const continueExpression = Expression.read(ctx);
           ctx.itr.read(';');
-          const finalExpression = require('../old/parser').readExpression(ctx);
+          const finalExpression = Expression.read(ctx);
           ctx.itr.read(')');
-          const statement = require('../old/parser').readStatement(ctx);
+          const statement = Statement.read(ctx);
 
           return new IterationStatement(
             'for',
@@ -183,9 +174,9 @@ module.exports = class IterationStatement extends AstItem {
         } else if (ctx.itr.peek.v === 'in') {
           const leftHandSideExpression = expression;
           ctx.itr.read('in');
-          const valueExpression = require('../old/parser').readExpression(ctx);
+          const valueExpression = Expression.read(ctx);
           ctx.itr.read(')');
-          const statement = require('../old/parser').readStatement(ctx);
+          const statement = Statement.read(ctx);
 
           return new IterationStatement(
             'for-var-in',
@@ -199,3 +190,10 @@ module.exports = class IterationStatement extends AstItem {
     throw new NotImplementedError('readIterationStatement ' + ctx.itr.peek.v);
   }
 };
+
+const Statement = require('./Statement');
+const Expression = require('./Expression');
+const VariableDeclaration = require('./VariableDeclaration.js');
+const VariableDeclarationList = require('./VariableDeclarationList.js');
+const LeftHandSideExpression = require('./LeftHandSideExpression.js');
+const Literal = require('./Literal.js');

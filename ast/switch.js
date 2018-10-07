@@ -1,6 +1,5 @@
 const { Scope } = require('./helpers/Scope.js');
 const AstItem = require('./AstItem.js');
-const StatementList = require('./StatementList.js');
 
 class SwitchStatement extends AstItem {
   constructor(expression, caseBlock) {
@@ -30,9 +29,9 @@ class SwitchStatement extends AstItem {
     ctx.dlog('readSwitchStatement');
     ctx.itr.read('switch');
     ctx.itr.read('(');
-    const expression = require('../old/parser').readExpression(ctx);
+    const expression = Expression.read(ctx);
     ctx.itr.read(')');
-    const caseBlock = require('../old/parser').readCaseBlock(ctx);
+    const caseBlock = CaseBlock.read(ctx);
 
     return new SwitchStatement(expression, caseBlock);
   }
@@ -89,12 +88,12 @@ class CaseBlock extends AstItem {
     ctx.dlog('readCaseBlock');
     ctx.itr.read('{');
 
-    const clausesA = [...require('../old/parser').readCaseClauses(ctx)];
+    const clausesA = [...CaseClauses.read(ctx)];
     let defaultClause = [];
     let clausesB = [];
     if (ctx.itr.peek.v !== '}') {
-      defaultClause = [...require('../old/parser').readDefaultClause(ctx)];
-      clausesB = [...require('../old/parser').readCaseClauses(ctx)];
+      defaultClause = [...DefaultClause.read(ctx)];
+      clausesB = [...CaseClauses.read(ctx)];
     }
 
     ctx.skipEmptyLines(ctx);
@@ -128,13 +127,9 @@ class CaseClause extends Clause {
   static read(ctx) {
     ctx.dlog('readCaseClause');
     ctx.itr.read('case');
-    const expression = require('../old/parser').readExpression(ctx);
+    const expression = Expression.read(ctx);
     ctx.itr.read(':');
-    const statementList = require('../old/parser').readStatementList(ctx, [
-      'case',
-      'default',
-      '}'
-    ]);
+    const statementList = StatementList.read(ctx, ['case', 'default', '}']);
     return new CaseClause(expression, statementList);
   }
 }
@@ -145,7 +140,7 @@ class CaseClauses extends AstItem {
     ctx.dlog('readCaseClauses');
     ctx.skipEmptyLines(ctx);
     while (ctx.itr.peek.v === 'case') {
-      yield require('../old/parser').readCaseClause(ctx);
+      yield CaseClause.read(ctx);
       ctx.skipEmptyLines(ctx);
     }
   }
@@ -162,11 +157,7 @@ class DefaultClause extends Clause {
     if (ctx.itr.peek.v !== 'default') return;
     ctx.itr.read('default');
     ctx.itr.read(':');
-    const statementList = require('../old/parser').readStatementList(ctx, [
-      'case',
-      'default',
-      '}'
-    ]);
+    const statementList = StatementList.read(ctx, ['case', 'default', '}']);
 
     yield new DefaultClause(statementList);
   }
@@ -180,3 +171,6 @@ module.exports = {
   CaseClauses,
   DefaultClause
 };
+
+const StatementList = require('./StatementList.js');
+const Expression = require('./Expression.js');

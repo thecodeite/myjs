@@ -16,7 +16,7 @@ class ThrowStatement extends AstItem {
   static read(ctx) {
     ctx.dlog('readTryStatement');
     ctx.itr.read('throw');
-    const expression = require('../old/parser').readExpression(ctx);
+    const expression = Expression.read(ctx);
     ctx.skipSemi(ctx);
     return new ThrowStatement(expression);
   }
@@ -49,14 +49,14 @@ class TryStatement extends AstItem {
   static read(ctx) {
     ctx.dlog('readTryStatement');
     ctx.itr.read('try');
-    const block = require('../old/parser').readBlock(ctx);
+    const block = Block.read(ctx);
     let catchBlock, finallyBlock;
     if (ctx.itr.peek.v === 'finally') {
-      finallyBlock = require('../old/parser').readFinally(ctx);
+      finallyBlock = Finally.read(ctx);
     } else {
-      catchBlock = require('../old/parser').readCatch(ctx);
+      catchBlock = Catch.read(ctx);
       if (ctx.itr.peek.v === 'finally') {
-        finallyBlock = require('../old/parser').readFinally(ctx);
+        finallyBlock = Finally.read(ctx);
       }
     }
     return new TryStatement(block, catchBlock, finallyBlock);
@@ -82,9 +82,9 @@ class Catch extends AstItem {
 
     ctx.itr.read('catch');
     ctx.itr.read('(');
-    const identifier = require('../old/parser').readIdentifier(ctx);
+    const identifier = Identifier.read(ctx);
     ctx.itr.read(')');
-    const block = require('../old/parser').readBlock(ctx);
+    const block = Block.read(ctx);
     return new Catch(identifier, block);
   }
 }
@@ -107,7 +107,7 @@ class Finally extends AstItem {
     ctx.dlog('readFinally');
 
     ctx.itr.read('finally');
-    const block = require('../old/parser').readBlock(ctx);
+    const block = Block.read(ctx);
     return new Finally(block);
   }
 }
@@ -118,3 +118,7 @@ module.exports = {
   Catch,
   Finally
 };
+
+const Expression = require('./Expression');
+const Block = require('./Block');
+const Identifier = require('./Identifier');

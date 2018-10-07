@@ -1,25 +1,5 @@
 const AstItem = require('./AstItem.js');
 
-const idStatements = () => ({
-  return: require('../old/parser').readReturnStatement,
-  var: require('../old/parser').readVariableStatement,
-  do: require('../old/parser').readIterationStatement,
-  while: require('../old/parser').readIterationStatement,
-  for: require('../old/parser').readIterationStatement,
-  if: require('../old/parser').readIfStatement,
-  continue: require('../old/parser').readContinue,
-  break: require('../old/parser').readBreak,
-  import: () => {
-    throw new NotImplementedError('readStatement: import');
-  },
-  with: () => {
-    throw new NotImplementedError('readStatement: with');
-  },
-  switch: require('../old/parser').readSwitchStatement,
-  throw: require('../old/parser').readThrowStatement,
-  try: require('../old/parser').readTryStatement
-});
-
 module.exports = class Statement extends AstItem {
   constructor(...children) {
     super(...children);
@@ -47,13 +27,37 @@ module.exports = class Statement extends AstItem {
     ctx.dlog('peek:', peek);
 
     if (peek === ';') {
-      return require('../old/parser').readEmptyStatement(ctx);
+      return EmptyStatement.read(ctx);
     } else if (peek === '{') {
-      return require('../old/parser').readBlock(ctx);
+      return Block.read(ctx);
     } else if (idStatements()[peek]) {
       return idStatements()[peek](ctx);
     } else {
-      return require('../old/parser').readExpressionStatement(ctx);
+      return ExpressionStatement.read(ctx);
     }
   }
 };
+
+const EmptyStatement = require('./EmptyStatement');
+const ExpressionStatement = require('./ExpressionStatement');
+const Block = require('./Block');
+
+const notImplemented = str => () => {
+  throw new NotImplementedError(str);
+};
+
+const idStatements = () => ({
+  return: require('./ReturnStatement').read,
+  var: require('./VariableStatement').read,
+  do: require('./IterationStatement').read,
+  while: require('./IterationStatement').read,
+  for: require('./IterationStatement').read,
+  if: require('./IfStatement').read,
+  continue: require('./ContinueStatement').read,
+  break: require('./BreakStatement').read,
+  import: notImplemented('readStatement: import'),
+  with: notImplemented('readStatement: with'),
+  switch: require('./switch').SwitchStatement.read,
+  throw: require('./TryThrowCatchFinally').ThrowStatement.read,
+  try: require('./TryThrowCatchFinally').TryStatement.read
+});

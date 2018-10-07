@@ -9,9 +9,12 @@ module.exports = class PropertyName extends AstItem {
   static read(ctx) {
     ctx.dlog('readPropertyName');
     if (ctx.itr.peek.t === 'string' || ctx.itr.peek.t === 'number') {
-      return require('../old/parser').readLiteral(ctx);
+      return Literal.read(ctx);
     } else {
-      return require('../old/parser').readIdentifier(ctx);
+      return Identifier.read(ctx);
     }
   }
 };
+
+const Literal = require('./Literal');
+const Identifier = require('./Identifier');

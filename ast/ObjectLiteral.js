@@ -27,10 +27,12 @@ module.exports = class ObjectLiteral extends AstItem {
     ctx.itr.read('{');
     let values = null;
     if (ctx.itr.peek.v !== '}') {
-      values = require('../old/parser').readPropertyNameAndValueList(ctx);
+      values = PropertyNameAndValueList.read(ctx);
     }
     ctx.itr.read('}');
 
     return new ObjectLiteral(values);
   }
 };
+
+const PropertyNameAndValueList = require('./PropertyNameAndValueList');

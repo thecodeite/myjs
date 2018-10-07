@@ -49,12 +49,12 @@ module.exports = class MemberExpressionPart extends AstItem {
     ctx.dlog('readMemberExpressionPart');
     if (ctx.itr.peek.v === '[') {
       ctx.itr.read('[');
-      const expression = require('../old/parser').readExpression(ctx);
+      const expression = Expression.read(ctx);
       ctx.itr.read(']');
       return new MemberExpressionPart('[', expression, target);
     } else if (ctx.itr.peek.v === '.') {
       ctx.itr.read('.');
-      const identifier = require('../old/parser').readIdentifier(ctx);
+      const identifier = Identifier.read(ctx);
       return new MemberExpressionPart('.', identifier, target);
     } else {
       throw new Error();

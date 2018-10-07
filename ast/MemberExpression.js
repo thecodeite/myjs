@@ -19,20 +19,23 @@ module.exports = class MemberExpression extends AstItem {
     // ( ( FunctionExpression | PrimaryExpression ) ( MemberExpressionPart )* ) | AllocationExpression
     const expression = (() => {
       if (ctx.itr.peek.v === 'new') {
-        return require('../old/parser').readAllocationExpression(ctx);
+        return AllocationExpression.read(ctx);
       }
 
       let child;
       if (ctx.itr.peek.v === 'function') {
         child = FunctionExpression.read(ctx);
       } else {
-        child = require('../old/parser').readPrimaryExpression(ctx);
+        child = PrimaryExpression.read(ctx);
       }
       while (ctx.itr.peek.v === '[' || ctx.itr.peek.v === '.') {
-        child = require('../old/parser').readMemberExpressionPart(ctx, child);
+        child = MemberExpressionPart.read(ctx, child);
       }
       return child;
     })();
     return new MemberExpression(expression);
   }
 };
+
+const PrimaryExpression = require('./PrimaryExpression');
+const MemberExpressionPart = require('./MemberExpressionPart');

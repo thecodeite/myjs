@@ -1,5 +1,7 @@
 const AstItem = require('./AstItem.js');
 
+const AssignmentExpression = require('./AssignmentExpression');
+
 module.exports = class Initialiser extends AstItem {
   constructor(...children) {
     super(...children);
@@ -10,6 +12,6 @@ module.exports = class Initialiser extends AstItem {
     ctx.dlog('readInitialiser');
     ctx.itr.read('=');
 
-    return require('../old/parser').readAssignmentExpression(ctx);
+    return AssignmentExpression.read(ctx);
   }
 };

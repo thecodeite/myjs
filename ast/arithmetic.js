@@ -15,10 +15,10 @@ class MultiplicativeExpression extends BinaryExpressionOperatorsAstItem {
   // MultiplicativeExpression	::=	UnaryExpression ( MultiplicativeOperator UnaryExpression )*
   static read(ctx) {
     ctx.dlog('readMultiplicativeExpression');
-    let child = require('../old/parser').readUnaryExpression(ctx);
+    let child = UnaryExpression.read(ctx);
     while (multiplicativeOperators.includes(ctx.itr.peek.v)) {
       const multiplicativeOperator = ctx.itr.read(multiplicativeOperators);
-      const right = require('../old/parser').readUnaryExpression(ctx);
+      const right = UnaryExpression.read(ctx);
       child = new MultiplicativeExpression(
         child,
         right,
@@ -43,10 +43,10 @@ class AdditiveExpression extends BinaryExpressionOperatorsAstItem {
   // AdditiveExpression	::=	MultiplicativeExpression ( AdditiveOperator MultiplicativeExpression )*
   static read(ctx) {
     ctx.dlog('readAdditiveExpression');
-    let child = require('../old/parser').readMultiplicativeExpression(ctx);
+    let child = MultiplicativeExpression.read(ctx);
     while (additiveOperators.includes(ctx.itr.peek.v)) {
       const additiveOperator = ctx.itr.read(additiveOperators);
-      const right = require('../old/parser').readMultiplicativeExpression(ctx);
+      const right = MultiplicativeExpression.read(ctx);
       child = new AdditiveExpression(child, right, additiveOperator);
     }
     return child;
@@ -67,10 +67,10 @@ class ShiftExpression extends BinaryExpressionOperatorsAstItem {
   // ShiftExpression	::=	AdditiveExpression ( ShiftOperator AdditiveExpression )*
   static read(ctx) {
     ctx.dlog('readShiftExpression');
-    let child = require('../old/parser').readAdditiveExpression(ctx);
+    let child = AdditiveExpression.read(ctx);
     while (shiftOperators.includes(ctx.itr.peek.v)) {
       const shiftOperator = ctx.itr.read(shiftOperators);
-      const right = require('../old/parser').readAdditiveExpression(ctx);
+      const right = AdditiveExpression.read(ctx);
       child = new ShiftExpression(child, right, shiftOperator);
     }
     return child;
@@ -85,3 +85,5 @@ module.exports = {
   ShiftOperator,
   ShiftExpression
 };
+
+const UnaryExpression = require('./UnaryExpression');

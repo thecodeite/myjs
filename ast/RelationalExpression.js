@@ -1,4 +1,5 @@
 const BinaryExpressionOperatorsAstItem = require('./BinaryExpressionOperatorsAstItem');
+const { ShiftExpression } = require('./arithmetic');
 
 const inOp = (left, right) => {
   if (typeof right !== 'object') {
@@ -34,7 +35,7 @@ class RelationalExpression extends BinaryExpressionOperatorsAstItem {
   // RelationalExpression	::=	ShiftExpression ( RelationalOperator ShiftExpression )*
   static read(ctx) {
     ctx.dlog('readRelationalExpression');
-    let child = require('../old/parser').readShiftExpression(ctx);
+    let child = ShiftExpression.read(ctx);
 
     const relationalOperators = ctx.noIn[0]
       ? relationalOperatorsNoIn
@@ -44,7 +45,7 @@ class RelationalExpression extends BinaryExpressionOperatorsAstItem {
       const relationalOperator = ctx.itr.read(relationalOperators);
       child = new RelationalExpression(
         child,
-        require('../old/parser').readShiftExpression(ctx),
+        ShiftExpression.read(ctx),
         relationalOperator
       );
     }

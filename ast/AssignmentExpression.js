@@ -1,5 +1,4 @@
 const AstItem = require('./AstItem');
-const LeftHandSideExpression = require('./LeftHandSideExpression');
 
 const AssignmentOperator = {
   '=': (_, right) => right,
@@ -51,11 +50,11 @@ class AssignmentExpression extends AstItem {
   // AssignmentExpression	::=	( LeftHandSideExpression AssignmentOperator AssignmentExpression | ConditionalExpression )
   static read(ctx) {
     ctx.dlog('readAssignmentExpression');
-    const left = require('../old/parser').readConditionalExpression(ctx);
+    const left = ConditionalExpression.read(ctx);
 
     if (assignmentOperators.includes(ctx.itr.peek.v)) {
       const operator = ctx.itr.read(assignmentOperators);
-      const right = require('../old/parser').readAssignmentExpression(ctx);
+      const right = AssignmentExpression.read(ctx);
       return new AssignmentExpression(left, right, operator);
     }
     return left;
@@ -64,3 +63,6 @@ class AssignmentExpression extends AstItem {
 
 AssignmentExpression.AssignmentOperator = AssignmentOperator;
 module.exports = AssignmentExpression;
+
+const LeftHandSideExpression = require('./LeftHandSideExpression');
+const ConditionalExpression = require('./ConditionalExpression');

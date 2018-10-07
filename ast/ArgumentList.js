@@ -10,20 +10,20 @@ module.exports = class ArgumentList extends AstItem {
   }
 
   static read(ctx) {
-    return require('../old/parser').readArgumentList(ctx);
+    return ArgumentList.read(ctx);
   }
 
   // ArgumentList	::=	AssignmentExpression ( "," AssignmentExpression )*
   static read(ctx) {
     ctx.dlog('readArgumentList');
-    const argumentList = [
-      require('../old/parser').readAssignmentExpression(ctx)
-    ];
+    const argumentList = [AssignmentExpression.read(ctx)];
     while (ctx.itr.peek.v === ',') {
       ctx.itr.read(',');
-      argumentList.push(require('../old/parser').readAssignmentExpression(ctx));
+      argumentList.push(AssignmentExpression.read(ctx));
     }
 
     return new ArgumentList(...argumentList);
   }
 };
+
+const AssignmentExpression = require('./AssignmentExpression');

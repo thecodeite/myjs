@@ -17,9 +17,11 @@ module.exports = class ReturnStatement extends AstItem {
     ctx.itr.read('return');
     let exp = undefined;
     if (ctx.itr.peek.v !== ';') {
-      exp = require('../old/parser').readExpression(ctx);
+      exp = Expression.read(ctx);
     }
     ctx.skipSemi(ctx);
     return new ReturnStatement(exp);
   }
 };
+
+const Expression = require('./Expression');

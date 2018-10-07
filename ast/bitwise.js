@@ -35,13 +35,10 @@ class BitwiseXORExpression extends BinaryExpressionAstItem {
   // BitwiseANDExpression	::=	EqualityExpression ( BitwiseANDOperator EqualityExpression )*
   static read(ctx) {
     ctx.dlog('readBitwiseANDExpression');
-    let child = require('../old/parser').readEqualityExpression(ctx);
+    let child = EqualityExpression.read(ctx);
     while (ctx.itr.peek.v === BitwiseANDOperator) {
       ctx.itr.read(BitwiseANDOperator);
-      child = new BitwiseANDExpression(
-        child,
-        require('../old/parser').readEqualityExpression(ctx)
-      );
+      child = new BitwiseANDExpression(child, EqualityExpression.read(ctx));
     }
     return child;
   }
@@ -77,3 +74,5 @@ module.exports = {
   BitwiseOROperator,
   BitwiseORExpression
 };
+
+const EqualityExpression = require('./EqualityExpression');

@@ -1,6 +1,5 @@
 const AstItem = require('./AstItem');
 const StorageSlot = require('./helpers/StorageSlot');
-const ElementList = require('./ElementList');
 
 module.exports = class ArrayLiteral extends AstItem {
   constructor(elementList) {
@@ -23,3 +22,5 @@ module.exports = class ArrayLiteral extends AstItem {
     return new ArrayLiteral(elementList);
   }
 };
+
+const ElementList = require('./ElementList');

@@ -14,9 +14,11 @@ module.exports = class Arguments extends AstItem {
     ctx.itr.read('(');
     let argList = [];
     if (ctx.itr.peek.v !== ')') {
-      argList = [require('../old/parser').readArgumentList(ctx)];
+      argList = [ArgumentList.read(ctx)];
     }
     ctx.itr.read(')');
     return new Arguments(...argList);
   }
 };
+
+const ArgumentList = require('./ArgumentList');

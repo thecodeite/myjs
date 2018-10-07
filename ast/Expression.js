@@ -1,7 +1,7 @@
 const AstItem = require('./AstItem');
 
 module.exports = class Expression extends AstItem {
-  constructor(assignmentExpressions) {
+  constructor() {
     super();
   }
 
@@ -9,9 +9,7 @@ module.exports = class Expression extends AstItem {
   static read(ctx) {
     ctx.dlog('readExpression');
     ctx.noIn.push(false);
-    const assignmentExpression = require('../old/parser').readAssignmentExpression(
-      ctx
-    );
+    const assignmentExpression = AssignmentExpression.read(ctx);
     ctx.noIn.pop();
     return assignmentExpression;
   }
@@ -19,10 +17,10 @@ module.exports = class Expression extends AstItem {
   static readNoIn(ctx) {
     ctx.dlog('readExpressionNoIn');
     ctx.noIn.push(true);
-    const assignmentExpression = require('../old/parser').readAssignmentExpression(
-      ctx
-    );
+    const assignmentExpression = AssignmentExpression.read(ctx);
     ctx.noIn.pop();
     return assignmentExpression;
   }
 };
+
+const AssignmentExpression = require('./AssignmentExpression');

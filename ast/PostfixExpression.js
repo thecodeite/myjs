@@ -1,7 +1,6 @@
 const StorageSlot = require('./helpers/StorageSlot');
 
 const AstItem = require('./AstItem');
-const LeftHandSideExpression = require('./LeftHandSideExpression');
 
 const PostfixOperator = {
   '++': x => x + 1,
@@ -29,9 +28,7 @@ class PostfixExpression extends AstItem {
   // PostfixExpression	::=	LeftHandSideExpression ( PostfixOperator )?
   static read(ctx) {
     ctx.dlog('readPostfixExpression');
-    let leftHandSizeExpression = require('../old/parser').readLeftHandSideExpression(
-      ctx
-    );
+    let leftHandSizeExpression = LeftHandSideExpression.read(ctx);
     while (postfixOperators.includes(ctx.itr.peek.v)) {
       const postfixOperator = ctx.itr.read(postfixOperators);
       leftHandSizeExpression = new PostfixExpression(
@@ -46,3 +43,5 @@ class PostfixExpression extends AstItem {
 PostfixExpression.PostfixOperator = PostfixOperator;
 
 module.exports = PostfixExpression;
+
+const LeftHandSideExpression = require('./LeftHandSideExpression');

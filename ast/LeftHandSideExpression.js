@@ -1,6 +1,4 @@
 const AstItem = require('./AstItem');
-const MemberExpression = require('./MemberExpression');
-const CallExpression = require('./CallExpression');
 
 module.exports = class LeftHandSideExpression extends AstItem {
   constructor(memberExpression) {
@@ -27,13 +25,17 @@ module.exports = class LeftHandSideExpression extends AstItem {
   // LeftHandSideExpression ::= CallExpression | MemberExpression
   static read(ctx) {
     ctx.dlog('readLeftHandSideExpression');
-    const memExp = require('../old/parser').readMemberExpression(ctx);
+    const memExp = MemberExpression.read(ctx);
 
     if (ctx.itr.peek.v === '(') {
-      const args = require('../old/parser').readArguments(ctx);
+      const args = Arguments.read(ctx);
       return new LeftHandSideExpression(new CallExpression(memExp, args));
     }
     // return memExp;
     return new LeftHandSideExpression(memExp);
   }
 };
+
+const MemberExpression = require('./MemberExpression');
+const CallExpression = require('./CallExpression');
+const Arguments = require('./Arguments');

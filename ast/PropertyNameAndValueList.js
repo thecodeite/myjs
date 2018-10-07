@@ -12,12 +12,14 @@ module.exports = class PropertyNameAndValueList extends AstItem {
   // PropertyNameAndValueList	::=	PropertyNameAndValue ( "," PropertyNameAndValue | "," )*
   static read(ctx) {
     ctx.dlog('readPropertyNameAndValueList');
-    const elements = [require('../old/parser').readPropertyNameAndValue(ctx)];
+    const elements = [PropertyNameAndValue.read(ctx)];
     while (ctx.itr.peek.v === ',') {
       ctx.itr.read(',');
-      elements.push(require('../old/parser').readPropertyNameAndValue(ctx));
+      elements.push(PropertyNameAndValue.read(ctx));
     }
 
     return new PropertyNameAndValueList(...elements);
   }
 };
+
+const PropertyNameAndValue = require('./PropertyNameAndValue');

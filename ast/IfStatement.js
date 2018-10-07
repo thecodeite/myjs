@@ -23,16 +23,19 @@ module.exports = class IfStatement extends AstItem {
     ctx.dlog('readIfStatement');
     ctx.itr.read('if');
     ctx.itr.read('(');
-    const expression = require('../old/parser').readExpression(ctx);
+    const expression = Expression.read(ctx);
     ctx.itr.read(')');
-    const statement = require('../old/parser').readStatement(ctx);
+    const statement = Statement.read(ctx);
 
     let elseStatement;
     if (ctx.itr.peek.v === 'else') {
       ctx.itr.read('else');
-      elseStatement = require('../old/parser').readStatement(ctx);
+      elseStatement = Statement.read(ctx);
     }
 
     return new IfStatement(expression, statement, elseStatement);
   }
 };
+
+const Statement = require('./Statement');
+const Expression = require('./Expression');

@@ -12,7 +12,7 @@ class Scope {
 
 class RootScope extends Scope {
   constructor(options) {
-    const global = createGlobal(options);
+    const global = createGlobal(options || {});
     super(global);
     this.global = global;
   }

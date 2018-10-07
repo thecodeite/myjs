@@ -1,6 +1,5 @@
 const StorageSlot = require('./helpers/StorageSlot');
 const AstItem = require('./AstItem');
-const Identifier = require('./Identifier');
 
 module.exports = class VariableDeclaration extends AstItem {
   constructor(identifier, initialiser) {
@@ -28,11 +27,11 @@ module.exports = class VariableDeclaration extends AstItem {
   // VariableDeclaration	::=	Identifier ( Initialiser )?
   static read(ctx) {
     ctx.dlog('readVariableDeclaration');
-    const identifier = require('../old/parser').readIdentifier(ctx);
-    const initialiser =
-      ctx.itr.peek.v === '='
-        ? require('../old/parser').readInitialiser(ctx)
-        : null;
+    const identifier = Identifier.read(ctx);
+    const initialiser = ctx.itr.peek.v === '=' ? Initialiser.read(ctx) : null;
     return new VariableDeclaration(identifier, initialiser);
   }
 };
+
+const Initialiser = require('./Initialiser');
+const Identifier = require('./Identifier');

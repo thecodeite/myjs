@@ -27,10 +27,12 @@ module.exports = class StatementList extends AstItem {
     const statements = [];
 
     while (!terminators.includes(ctx.itr.peek.v)) {
-      statements.push(require('../old/parser').readStatement(ctx));
+      statements.push(Statement.read(ctx));
       ctx.skipEmptyLines(ctx);
     }
 
     return new StatementList(statements);
   }
 };
+
+const Statement = require('./Statement');

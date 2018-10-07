@@ -1,4 +1,5 @@
 const AstItem = require('./AstItem.js');
+const Expression = require('./Expression.js');
 
 module.exports = class ExpressionStatement {
   constructor() {
@@ -8,7 +9,7 @@ module.exports = class ExpressionStatement {
   // ExpressionStatement	::=	Expression ( ";" )?
   static read(ctx) {
     ctx.dlog('readExpressionStatement');
-    const exp = require('../old/parser').readExpression(ctx);
+    const exp = Expression.read(ctx);
     ctx.skipSemi(ctx);
     return exp;
   }

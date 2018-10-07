@@ -4,13 +4,7 @@ const { RootScope } = require('./ast/helpers/Scope');
 const Program = require('./ast/Program');
 
 const src = `
-try {
-  console.log('good');
-  throw 'error';
-  console.log('bad');
-} finally {
-  console.log('finally');
-}
+var a = 1;
 `;
 
 const context = new ParsingContext(tokenize(src));

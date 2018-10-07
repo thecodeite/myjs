@@ -13,12 +13,14 @@ module.exports = class ElementList extends AstItem {
   // ElementList	::=	( Elision )? AssignmentExpression ( Elision AssignmentExpression )*
   static read(ctx) {
     ctx.dlog('readElementList');
-    const elements = [require('../old/parser').readAssignmentExpression(ctx)];
+    const elements = [AssignmentExpression.read(ctx)];
     while (ctx.itr.peek.v === ',') {
       ctx.itr.read(',');
-      elements.push(require('../old/parser').readAssignmentExpression(ctx));
+      elements.push(AssignmentExpression.read(ctx));
     }
 
     return new ElementList(elements);
   }
 };
+
+const AssignmentExpression = require('./AssignmentExpression');
