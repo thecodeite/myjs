@@ -711,3 +711,45 @@ test('try func throw catch', () => {
   const { scope } = run(src);
   expect(scope.global.__stdout).toEqual('good\nfunc-start\nerror\ncaught\n');
 });
+
+test('conditional operator', () => {
+  const src = `
+    var a = true;
+    var b = 10;
+
+    var x = a ? 'good' : 'bad';
+    var y = b < 100 ? 'good' : 'bad';
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual('good');
+  expect(scope.y.data).toEqual('good');
+});
+
+test('single line comment', () => {
+  const src = `
+    var x = 1;
+    // x = 2 / 4;
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(1);
+});
+
+test('multi line comment', () => {
+  const src = `
+    var x = 1;
+    /* x = 2 / 4; */
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(1);
+});
+
+test('multi line comment2', () => {
+  const src = `
+    var x = 1;
+    /*
+    x = 2 / 4;
+    */
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(1);
+});

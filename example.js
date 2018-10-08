@@ -3,10 +3,9 @@ const ParsingContext = require('./ParsingContext');
 const { RootScope } = require('./ast/helpers/Scope');
 const Program = require('./ast/Program');
 
-const src = `
-var a = 1;
-`;
+const src = ``;
 
+console.log('[...tokenize(src)]:', [...tokenize(src)]);
 const context = new ParsingContext(tokenize(src));
 const program = Program.read(context);
 console.log('ast: \n' + program.toStringAll());

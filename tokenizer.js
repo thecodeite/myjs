@@ -26,12 +26,20 @@ module.exports = function tokenize(source) {
     let pos = 0;
     const len = source.length;
 
+    let p;
     const peek = () => source[pos];
     const read = () => {
-      return source[pos++];
+      if (pos > source.length) {
+        throw new Error('Read passed end of input');
+      }
+      const val = source[pos];
+      pos++;
+      p = source[pos];
+      return val;
     };
     const skip = () => {
       pos++;
+      p = source[pos];
     };
 
     const readWhiteSpace = () => {
@@ -65,15 +73,35 @@ module.exports = function tokenize(source) {
 
     const readSymbol = () => {
       let symbol = read();
-      // if (!isSingleSymbol(symbol)) {
-      //   while (isSymbol(peek())) {
-      //     symbol += read();
-      //   }
-      // }
+
+      if (symbol === '/') {
+        if (peek() === '/') {
+          return readSingleLineComment();
+        } else if (peek() === '*') {
+          return readMultiLineComment();
+        }
+      }
+
       while (isSymbol(symbol + peek())) {
         symbol += read();
       }
       return { v: symbol, t: 'symbol' };
+    };
+
+    const readSingleLineComment = () => {
+      read('/');
+      while (peek() !== '\n') {
+        read();
+      }
+      read('\n');
+      return null;
+    };
+
+    const readMultiLineComment = () => {
+      read('*');
+      while (!(read() === '*' && peek() === '/'));
+      read('/');
+      return null;
     };
 
     const readString = quote => {
@@ -106,7 +134,8 @@ module.exports = function tokenize(source) {
       } else if (isNumber(next)) {
         yield readNumber();
       } else if (isSymbol(next)) {
-        yield readSymbol();
+        const symbol = readSymbol();
+        if (symbol) yield symbol;
       } else if (isString(next)) {
         yield readString(next);
       } else {
@@ -131,7 +160,7 @@ module.exports = function tokenize(source) {
   const res = {
     value,
     peek: value,
-    done: false
+    done: value === undefined
   };
 
   res.peek = value;
@@ -166,7 +195,7 @@ module.exports = function tokenize(source) {
   return res;
 };
 
-const wrappers = '[]{}()';
+const wrappers = '[]{}()?';
 const math = '+-/*%';
 const logical = ['&&', '||'];
 const assignment = [

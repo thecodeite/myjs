@@ -1,18 +1,41 @@
 const AstItem = require('./AstItem');
 
-const { LogicalORExpression } = require('./logical');
-
 module.exports = class ConditionalExpression extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(condition, trueExpression, falseExpression) {
+    super(condition, trueExpression, falseExpression);
+    this.condition = condition;
+    this.trueExpression = trueExpression;
+    this.falseExpression = falseExpression;
+  }
+
+  run(scope) {
+    const conditionValue = this.condition.run(scope).valueOf();
+    if (conditionValue) {
+      return this.trueExpression.run(scope);
+    } else if (this.elseStatement) {
+      return this.falseExpression.run(scope);
+    }
   }
 
   // ConditionalExpression	::=	LogicalORExpression ( "?" AssignmentExpression ":" AssignmentExpression )?
   static read(ctx) {
     ctx.dlog('readConditionalExpression');
-    const left = LogicalORExpression.read(ctx);
-    if (ctx.itr.peek.v === '?')
-      throw new Error('Not implemented: readConditionalExpression');
-    return left;
+    const condition = LogicalORExpression.read(ctx);
+    if (ctx.itr.peek.v === '?') {
+      ctx.itr.read('?');
+      const trueExpression = AssignmentExpression.read(ctx);
+      ctx.itr.read(':');
+      const falseExpression = AssignmentExpression.read(ctx);
+
+      return new ConditionalExpression(
+        condition,
+        trueExpression,
+        falseExpression
+      );
+    }
+    return condition;
   }
 };
+
+const { LogicalORExpression } = require('./logical');
+const AssignmentExpression = require('./AssignmentExpression');
