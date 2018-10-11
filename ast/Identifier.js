@@ -17,12 +17,8 @@ module.exports = class Identifier extends AstItem {
     let currentScope = scope;
 
     let id = this.name;
-    while (currentScope) {
-      if (id in currentScope) {
-        return currentScope[id];
-      }
-      currentScope = currentScope.__parentScope;
-    }
+    const slot = currentScope.getSlot(id);
+    if (slot !== undefined) return slot;
 
     throw new Error(id + ' is not defined');
   }

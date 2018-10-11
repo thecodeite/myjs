@@ -1,7 +1,6 @@
-const tokenize = require('./tokenizer');
 const ParsingContext = require('./ParsingContext');
 const { readProgram } = require('./parser');
-const { RootScope } = require('./ast/helpers/Scope');
+const { createRootScope } = require('./ast/helpers/Scope');
 
 const src = `
 var a = 1;
@@ -26,10 +25,10 @@ function func3 (x) {
 console.log(func1() + func2(5) + func3(10))
 `;
 
-const context = new ParsingContext(tokenize(src));
+const context = new ParsingContext(src);
 const program = readProgram(context);
 console.log('ast: \n' + program.toStringAll());
 
-const scope = new RootScope();
+const scope = createRootScope();
 console.log('result: \n' + program.run(scope));
 // console.log('context.scope:', JSON.stringify(context.scope, null, '  '));

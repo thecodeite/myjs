@@ -6,7 +6,7 @@ module.exports = class ContinueStatement extends AstItem {
   }
 
   run(scope) {
-    scope.__continue = true;
+    scope.setContinue();
   }
 
   // ContinueStatement	::=	"continue" ( Identifier )? ( ";" )?

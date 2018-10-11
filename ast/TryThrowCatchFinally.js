@@ -9,7 +9,7 @@ class ThrowStatement extends AstItem {
 
   run(scope) {
     const error = this.expression.run(scope);
-    scope.__error = error;
+    scope.setError(error);
   }
 
   // ThrowStatement	::=	"throw" Expression ( ";" )?
@@ -32,7 +32,7 @@ class TryStatement extends AstItem {
   }
 
   run(scope) {
-    const newScope = new Scope(scope);
+    const newScope = scope.createChild();
 
     this.block.run(newScope);
 
@@ -71,8 +71,8 @@ class Catch extends AstItem {
   }
 
   run(scope) {
-    scope[this.identifier.name] = scope.__error;
-    delete scope.__error;
+    scope.addSlot(this.identifier.name, scope.getError());
+    scope.clearError();
     this.block.run(scope);
   }
 

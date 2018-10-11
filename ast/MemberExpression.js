@@ -18,7 +18,7 @@ module.exports = class MemberExpression extends AstItem {
     ctx.dlog('readMemberExpression');
     // ( ( FunctionExpression | PrimaryExpression ) ( MemberExpressionPart )* ) | AllocationExpression
     const expression = (() => {
-      if (ctx.itr.peek.v === 'new') {
+      if (AllocationExpression.isNext(ctx)) {
         return AllocationExpression.read(ctx);
       }
 
@@ -39,3 +39,4 @@ module.exports = class MemberExpression extends AstItem {
 
 const PrimaryExpression = require('./PrimaryExpression');
 const MemberExpressionPart = require('./MemberExpressionPart');
+const AllocationExpression = require('./AllocationExpression');

@@ -25,15 +25,16 @@ class Function extends AstItem {
   }
 
   run(scope) {
+    const fes = new FunctionStorageSlot(this);
     if (this.identifier) {
-      scope[this.identifier.name] = this;
+      scope.addSlot(this.identifier.name, fes);
     }
-    return this;
+    return fes;
   }
 
   runBody(scope) {
     this.body.run(scope);
-    return scope.__returnValue;
+    return scope.getReturnValue();
   }
 }
 
@@ -63,7 +64,9 @@ class FunctionExpression extends Function {
   }
 
   toString(pad = '') {
-    return `${pad}[FunctionExpression:'${this.identifier.name}']`;
+    return `${pad}[FunctionExpression:'${
+      this.identifier ? this.identifier.name : 'anonymouse'
+    }']`;
   }
 
   // FunctionExpression	::=	"function" ( Identifier )? ( "(" ( FormalParameterList )? ")" ) FunctionBody
@@ -91,7 +94,7 @@ class NativeCode extends Function {
     return `[NativeCode]`;
   }
 
-  runBody(scope) {
+  __callable(scope) {
     this.code(scope);
   }
 }
@@ -122,17 +125,14 @@ class FormalParameterList extends AstItem {
 }
 
 class FunctionBody extends AstItem {
-  constructor(...children) {
-    super(...children);
+  constructor(sourceElements) {
+    super(sourceElements);
+    this.sourceElements = sourceElements;
   }
 
   run(scope) {
-    this.children.every(child => {
-      child.run(scope);
-      if ('__error' in scope) return;
-      return !'__returnValue' in scope;
-    });
-    return scope.__returnValue;
+    this.sourceElements.run(scope);
+    return scope.getReturnValue();
   }
 
   static read(ctx) {
@@ -182,3 +182,5 @@ function readFunctionDeclarationOrFunctionExpression(ctx, identifierRequired) {
 
   return { identifier, params, body };
 }
+
+const { FunctionStorageSlot } = require('./helpers/StorageSlot');

@@ -14,9 +14,9 @@ module.exports = class VariableDeclaration extends AstItem {
   run(scope) {
     const id = this.identifier.name;
     if (this.initialiser) {
-      scope[id] = this.initialiser.run(scope);
+      scope.addSlot(id, this.initialiser.run(scope));
     } else {
-      scope[id] = new StorageSlot(undefined);
+      scope.addValue(id, undefined);
     }
   }
 

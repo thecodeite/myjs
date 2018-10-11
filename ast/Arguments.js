@@ -9,6 +9,10 @@ module.exports = class Arguments extends AstItem {
     return this.runChildren(scope);
   }
 
+  static isNext(ctx) {
+    return ctx.itr.peek.v === '(';
+  }
+
   // Arguments	::=	"(" ( ArgumentList )? ")"
   static read(ctx) {
     ctx.itr.read('(');

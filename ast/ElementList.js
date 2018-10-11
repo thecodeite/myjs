@@ -14,9 +14,12 @@ module.exports = class ElementList extends AstItem {
   static read(ctx) {
     ctx.dlog('readElementList');
     const elements = [AssignmentExpression.read(ctx)];
+    ctx.skipEmptyLines();
     while (ctx.itr.peek.v === ',') {
       ctx.itr.read(',');
+      ctx.skipEmptyLines();
       elements.push(AssignmentExpression.read(ctx));
+      ctx.skipEmptyLines();
     }
 
     return new ElementList(elements);

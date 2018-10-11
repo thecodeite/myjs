@@ -33,7 +33,7 @@ module.exports = class IterationStatement extends AstItem {
       if (variableDeclaration) {
         const varName = variableDeclaration.identifier.name;
         variableDeclaration.run(scope);
-        storageSlot = scope[varName];
+        storageSlot = scope.getSlot(varName);
       } else if (leftHandSideExpression) {
         storageSlot = leftHandSideExpression.run(scope);
       }
@@ -45,12 +45,12 @@ module.exports = class IterationStatement extends AstItem {
         storageSlot.set(keys[i]);
         this.statement.run(scope);
 
-        if (scope.__break) {
-          delete scope.__break;
+        if (scope.getBreak()) {
+          scope.clearBreak();
           break;
         }
-        if (scope.__continue) {
-          delete scope.__continue;
+        if (scope.getContinue()) {
+          scope.clearContinue();
         }
       }
 
@@ -69,12 +69,12 @@ module.exports = class IterationStatement extends AstItem {
     let loop;
     do {
       this.statement.run(scope);
-      if (scope.__break) {
-        delete scope.__break;
+      if (scope.getBreak()) {
+        scope.clearBreak();
         break;
       }
-      if (scope.__continue) {
-        delete scope.__continue;
+      if (scope.getContinue()) {
+        delete scope.clearContinue();
       }
       if (finalExpression) {
         finalExpression.run(scope);

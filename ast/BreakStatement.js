@@ -6,7 +6,7 @@ module.exports = class BreakStatement extends AstItem {
   }
 
   run(scope) {
-    scope.__break = true;
+    scope.setBreak();
   }
 
   // BreakStatement	::=	"break" ( Identifier )? ( ";" )?

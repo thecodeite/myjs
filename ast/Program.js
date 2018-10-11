@@ -1,4 +1,6 @@
 const AstItem = require('./AstItem.js');
+const CompileError = require('./helpers/CompileError');
+const { ParsingError } = require('../tokenizer');
 
 class Program extends AstItem {
   constructor(...children) {
@@ -15,8 +17,17 @@ class Program extends AstItem {
   // Program ::= ( SourceElements )? <EOF>
   static read(ctx) {
     ctx.dlog('read.Program');
-    const elements = SourceElements.read(ctx);
-    return new Program(elements);
+    try {
+      const elements = SourceElements.read(ctx);
+      return new Program(elements);
+    } catch (e) {
+      if (e instanceof CompileError || e instanceof ParsingError) {
+        throw e;
+      } else {
+        console.log(e);
+        throw new CompileError(e, ctx);
+      }
+    }
   }
 }
 

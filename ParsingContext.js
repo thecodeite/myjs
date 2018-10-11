@@ -1,6 +1,9 @@
+const tokenize = require('./tokenizer');
+
 module.exports = class ParsingContext {
-  constructor(itr) {
-    this.itr = itr;
+  constructor(source) {
+    this.source = source;
+    this.itr = tokenize(source);
     this.noIn = [];
   }
 

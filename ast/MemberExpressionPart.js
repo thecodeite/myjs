@@ -44,6 +44,10 @@ module.exports = class MemberExpressionPart extends AstItem {
     return target.getChild(name);
   }
 
+  static isNext(ctx) {
+    return ctx.itr.peek.v === '[' || ctx.itr.peek.v === '.';
+  }
+
   // MemberExpressionPart	::=	( "[" Expression "]" ) |	( "." Identifier )
   static read(ctx, target) {
     ctx.dlog('readMemberExpressionPart');

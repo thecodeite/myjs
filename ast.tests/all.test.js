@@ -1,15 +1,15 @@
-const tokenize = require('./tokenizer');
-const Program = require('./ast/Program');
-const ParsingContext = require('./ParsingContext');
-const { RootScope } = require('./ast/helpers/Scope');
+const Program = require('../ast/Program');
+const ParsingContext = require('../ParsingContext');
+const { createRootScope, unlockScope } = require('../ast/helpers/Scope');
 
 process.env.DEBUG = 'false';
 
 function run(src) {
-  const context = new ParsingContext(tokenize(src));
+  const context = new ParsingContext(src);
   const program = Program.read(context);
-  const scope = new RootScope({ noStdout: true });
+  const scope = createRootScope({ noStdout: true });
   program.run(scope);
+  unlockScope();
   return {
     context,
     scope
@@ -75,6 +75,27 @@ test('array literal', () => {
 test('deep literal', () => {
   const src = `
   var x = {a:[{b:[1]}]};
+  var y = x.a[0].b[0]
+  `;
+  const { scope } = run(src);
+  expect(scope.y.data).toEqual(1);
+});
+
+test('deep literal new lines', () => {
+  const src = `
+  var x = {
+    a
+    :
+    [
+      {
+        b
+        :
+        [
+          1
+        ]
+      }
+    ]
+  };
   var y = x.a[0].b[0]
   `;
   const { scope } = run(src);
@@ -358,6 +379,17 @@ test('object assignment to dot property', () => {
   expect(scope.y.data).toEqual(2);
 });
 
+test('object assignment to dot property create', () => {
+  const src = `
+  var x = {};
+  x.a = 2
+  var y = x.a
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data.a.data).toEqual(2);
+  expect(scope.y.data).toEqual(2);
+});
+
 test('object assignment to array property', () => {
   const src = `
   var x = {a:1};
@@ -619,7 +651,7 @@ test('console.log', () => {
   console.log('hello')
   `;
   const { scope } = run(src);
-  expect(scope.__parentScope.__stdout).toEqual('hello\n');
+  expect(scope.__streams.stdout).toEqual('hello\n');
 });
 
 test('array length', () => {
@@ -640,7 +672,7 @@ test('try', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.global.__stdout).toEqual('good\n');
+  expect(scope.__streams.stdout).toEqual('good\n');
 });
 
 test('try throw catch', () => {
@@ -655,7 +687,7 @@ test('try throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.global.__stdout).toEqual('good\nerror\ncaught\n');
+  expect(scope.__streams.stdout).toEqual('good\nerror\ncaught\n');
 });
 
 test('try throw finally', () => {
@@ -669,7 +701,7 @@ test('try throw finally', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.global.__stdout).toEqual('good\nfinally\n');
+  expect(scope.__streams.stdout).toEqual('good\nfinally\n');
 });
 
 test('try loop throw catch', () => {
@@ -688,7 +720,7 @@ test('try loop throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.global.__stdout).toEqual('good\nloop-start\nerror\ncaught\n');
+  expect(scope.__streams.stdout).toEqual('good\nloop-start\nerror\ncaught\n');
 });
 
 test('try func throw catch', () => {
@@ -709,7 +741,7 @@ test('try func throw catch', () => {
     }
   `;
   const { scope } = run(src);
-  expect(scope.global.__stdout).toEqual('good\nfunc-start\nerror\ncaught\n');
+  expect(scope.__streams.stdout).toEqual('good\nfunc-start\nerror\ncaught\n');
 });
 
 test('conditional operator', () => {
@@ -752,4 +784,90 @@ test('multi line comment2', () => {
   `;
   const { scope } = run(src);
   expect(scope.x.data).toEqual(1);
+});
+
+test('regexp', () => {
+  const src = `
+    var x = 1 / 3;
+    var y = /abc/;
+  `;
+  const { scope } = run(src);
+});
+
+test('this', () => {
+  const src = `
+  var y = {
+    prop: 42,
+    func: function() {
+      return this.prop;
+    }
+  };
+  var x = y.func();
+  `;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(42);
+});
+
+test('global', () => {
+  const src = `
+  var a = 1;
+  global.b = 2;
+  function f() {
+    global.c = 3;
+  }
+  f();
+
+  var x = global.a;
+  var y = b;
+  var z = c;
+  console.log(x, y, z);
+`;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual(1);
+  expect(scope.y.data).toEqual(2);
+  expect(scope.z.data).toEqual(3);
+});
+
+test('call and apply', () => {
+  const src = `
+  // An object can be passed as the first argument to call or apply and this will be bound to it.
+  var obj = {a: 'Custom'};
+
+  // This property is set on the global object
+  var a = 'Global';
+
+  function whatsThis() {
+    return this.a;  // The value of this is dependent on how the function is called
+  }
+
+  var x = whatsThis();          // 'Global'
+  var y = whatsThis.call(obj);  // 'Custom'
+  var z = whatsThis.apply(obj); // 'Custom'
+`;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual('Global');
+  expect(scope.y.data).toEqual('Custom');
+  expect(scope.z.data).toEqual('Custom');
+});
+
+test('call and apply args', () => {
+  const src = `
+  // An object can be passed as the first argument to call or apply and this will be bound to it.
+  var obj = {a: 'Custom'};
+
+  // This property is set on the global object
+  var a = 'Global';
+
+  function whatsThis(i, j) {
+    return this.a + (i + j);  // The value of this is dependent on how the function is called
+  }
+
+  var x = whatsThis(1, 2);      // 'Global3'
+  var y = whatsThis.call(obj, 1, 2);  // 'Custom'
+  var z = whatsThis.apply(obj, [1, 2]); // 'Custom'
+`;
+  const { scope } = run(src);
+  expect(scope.x.data).toEqual('Global3');
+  expect(scope.y.data).toEqual('Custom3');
+  expect(scope.z.data).toEqual('Custom3');
 });

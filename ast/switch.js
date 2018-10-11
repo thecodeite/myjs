@@ -13,15 +13,13 @@ class SwitchStatement extends AstItem {
 
   run(scope) {
     const expressionValue = this.expression.run(scope);
-    const newScope = new Scope(scope);
-    newScope.__switchOn = expressionValue;
+    const newScope = scope.createChild();
+    newScope.addSlot('__switchOn', expressionValue);
 
     this.caseBlock.run(newScope);
 
-    scope.__returnValue = newScope.__returnValue;
-    if ('__error' in newScope) {
-      scope.__error = newScope.__error;
-    }
+    newScope.bubbleReturn();
+    newScope.bubbleError();
   }
 
   // SwitchStatement	::=	"switch" "(" Expression ")" CaseBlock
@@ -60,8 +58,9 @@ class CaseBlock extends AstItem {
       }
     });
 
+    const switchValue = scope.getValue('__switchOn');
     let startIndex = clauseValues.findIndex(
-      x => x.value && x.value.valueOf() === scope.__switchOn.valueOf()
+      x => x.value && x.value.valueOf() === switchValue
     );
 
     if (startIndex === -1) {

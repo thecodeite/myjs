@@ -15,6 +15,7 @@ module.exports = class ArrayLiteral extends AstItem {
   static read(ctx) {
     ctx.dlog('readArrayLiteral');
     ctx.itr.read('[');
+    ctx.skipEmptyLines();
 
     const elementList =
       ctx.itr.peek.v === ']' ? new ElementList([]) : ElementList.read(ctx);

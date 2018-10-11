@@ -27,6 +27,18 @@ class Literal extends AstItem {
     return `${pad}[Literal:'${this.value}']`;
   }
 
+  static is(ctx) {
+    return (
+      (ctx.itr.peek.v === 'null') |
+      (ctx.itr.peek.v === 'true') |
+      (ctx.itr.peek.v === 'false') |
+      (ctx.itr.peek.v === 'undefined') |
+      (ctx.itr.peek.t === 'number') |
+      (ctx.itr.peek.t === 'string') |
+      (ctx.itr.peek.t === 'regexp')
+    );
+  }
+
   // Literal	::=	(
   //   <DECIMAL_LITERAL>
   //   | <HEX_INTEGER_LITERAL>
@@ -40,6 +52,7 @@ class Literal extends AstItem {
     const literalAst = (() => {
       if (ctx.itr.peek.t === 'string') return readString(ctx);
       if (ctx.itr.peek.t === 'number') return readNumber(ctx);
+      if (ctx.itr.peek.t === 'regexp') return RegExpLiteral.read(ctx);
       if (ctx.itr.peek.v === 'null') {
         ctx.itr.read('null');
         return new Literal(null);
@@ -56,6 +69,10 @@ class Literal extends AstItem {
         ctx.itr.read('undefined');
         return new Literal(undefined);
       }
+
+      throw new Error(
+        'Expected to read a literal but got ' + JSON.stringify(ctx.itr.peek)
+      );
     })();
 
     return literalAst;
@@ -64,5 +81,7 @@ class Literal extends AstItem {
 
 Literal.True = new Literal(true);
 Literal.False = new Literal(false);
+
+const RegExpLiteral = require('./RegExpLiteral');
 
 module.exports = Literal;

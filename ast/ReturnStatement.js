@@ -7,8 +7,8 @@ module.exports = class ReturnStatement extends AstItem {
   }
 
   run(scope) {
-    scope.__returnValue = this.expression.run(scope);
-    return scope.__returnValue;
+    const returnValue = this.expression.run(scope);
+    scope.setReturnValue(returnValue);
   }
 
   // ReturnStatement	::=	"return" ( Expression )? ( ";" )?
